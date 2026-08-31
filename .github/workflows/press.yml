@@ -1,0 +1,10 @@
+name: press
+on: [push, pull_request]
+jobs:
+  html:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python press.py examples/bienvenue.txt.unforge.json -o /tmp/card.html
