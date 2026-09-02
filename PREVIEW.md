@@ -1,8 +1,6 @@
-# Ville Preview — press
+# Preview
 
-Carte A5 imprimable depuis une preuve .unforge.json.
-Pas d'émission. Lecture seule.
-Vérifier avec unforge-check.
-
-Preview docs — POST /attest type Stripe. Badge PREVIEW.
-Triggered after famille PR #27 merge.
+UNFORGE Press — pocket card.
+0 data/.
+0 slug.
+Carl.
