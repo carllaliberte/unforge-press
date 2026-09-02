@@ -1,5 +1,5 @@
 # Preview docs
 
-Une pièce.
-
-Étage preview — documentation réelle pour press.
+Note carte A5 PREVIEW.
+Réf VILLES.md.
+0 slug. 0 token.
