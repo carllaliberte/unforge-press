@@ -11,3 +11,5 @@ No node. No cloud. No coin.
 Verify with [unforge-check](https://github.com/carllaliberte/unforge-check).
 Contrat : https://github.com/carllaliberte/famille/blob/main/schema/juge.v0.json
 Brand UNFORGE reserved. Code: Apache-2.0.
+
+<!-- ville/garde-hooks -->
