@@ -1,5 +1,7 @@
 name: press
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   html:
     runs-on: ubuntu-latest
@@ -7,4 +9,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: python press.py examples/bienvenue.txt.unforge.json -o /tmp/card.html
+      - name: tests
+        run: python3 -m unittest discover -s tests -v
+      - name: print
+        run: |
+          python3 press.py --schema | python3 -c "import json,sys; s=json.load(sys.stdin); assert s['title']=='unforge.press.v0'"
+          python3 press.py examples/bienvenue.txt.unforge.json -o /tmp/card.html
+          python3 press.py examples/bienvenue.txt -o /tmp/voisin.html
+          test -f /tmp/card.html
+          grep -q "QT-PR-DEMO0001" /tmp/card.html
+          grep -q "unforge-press" /tmp/card.html
+          if grep -q "VERT" /tmp/card.html; then echo "print must not say VERT"; exit 1; fi
