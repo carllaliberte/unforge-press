@@ -115,6 +115,8 @@ class Html(unittest.TestCase):
         self.assertIn("application/json", page)
         self.assertIn("id='unforge-press'", page)
         self.assertIn("Not a seal", page)
+        self.assertIn("148mm", page)
+        self.assertIn("@media screen", page)
         self.assertNotIn("VERT", page)
         self.assertNotIn("#39ff88", page)
         self.assertNotIn("quantique", page.lower())

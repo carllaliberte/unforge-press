@@ -18,11 +18,12 @@ SCHEMA_ID = "press.v0"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "press.v0.json"
 
 CSS = (
-    "@page{size:A5 portrait;margin:14mm}"
+    "@page{size:A5 portrait;margin:12mm}"
     "html{color-scheme:light}"
     "body{font-family:Palatino,'Palatino Linotype',Georgia,serif;color:#111;margin:0;background:#fff}"
-    ".card{border:2px solid #111;min-height:180mm;padding:12mm 10mm;box-sizing:border-box;"
-    "display:flex;flex-direction:column}"
+    "@media screen{body{background:#f3f3f1;padding:12mm;display:flex;justify-content:center}}"
+    ".card{border:2px solid #111;width:148mm;max-width:100%;min-height:210mm;padding:12mm 10mm;"
+    "box-sizing:border-box;display:flex;flex-direction:column;background:#fff}"
     ".marque{letter-spacing:.35em;font-size:11px;text-transform:uppercase}"
     "h1{font-size:22px;font-weight:600;margin:18px 0 8px}"
     ".fait{margin:0 0 16px;font-size:14px;line-height:1.4}"
@@ -170,9 +171,9 @@ def imprimer(preuve: Path, dest: Path | None = None) -> dict:
     if not rec.get("ok"):
         return rec
     cible = dest if dest is not None else dest_defaut(preuve)
-    cible.write_text(html_carte(paquet, rec), encoding="utf-8")
     rec["html"] = str(cible)
     rec["phrase"] = phrase_press(rec)
+    cible.write_text(html_carte(paquet, rec), encoding="utf-8")
     return rec
 
 
