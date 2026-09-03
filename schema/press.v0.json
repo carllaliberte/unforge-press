@@ -1,0 +1,39 @@
+{
+  "$id": "https://github.com/carllaliberte/unforge-press/schema/press.v0.json",
+  "title": "unforge.press.v0",
+  "description": "Record returned by UNFORGE Press. Prints ids from a UNFORGE-PREUVE-v1 card. Does not open the signature. Does not verify a file. ok: true is not a match — that is unforge-check.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ok", "geste"],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "Card is UNFORGE-PREUVE-v1 and the A5 HTML was written. Not a file-match verdict. Not a seal."
+    },
+    "geste": { "const": "press" },
+    "schema": { "const": "press.v0" },
+    "id": { "type": ["string", "null"] },
+    "card_id": { "type": ["string", "null"] },
+    "token_id": { "type": ["string", "null"] },
+    "label": { "type": ["string", "null"] },
+    "objet": { "type": ["string", "null"] },
+    "sha256": {
+      "type": ["string", "null"],
+      "description": "objet.sha256 as written on the card. Printed, not recomputed."
+    },
+    "empreinte": {
+      "type": ["string", "null"],
+      "description": "Card fingerprint as written. Printed, not recomputed."
+    },
+    "algo": { "type": "string" },
+    "created_at": { "type": ["string", "null"] },
+    "fait": { "type": "string" },
+    "html": { "type": "string", "description": "Path of the A5 artifact when written." },
+    "marque": { "const": "UNFORGE" },
+    "noeud": { "const": "non requis" },
+    "phrase": { "type": "string" },
+    "erreur": { "type": "string" },
+    "attendu": { "type": "string" },
+    "detail": { "type": "string" }
+  }
+}
