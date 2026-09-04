@@ -24,8 +24,10 @@ Itinerary of stamps: [unforge-trail](https://github.com/carllaliberte/unforge-tr
 
 Agents: `python3 press.py --schema` · `from press import imprimer` · [INTEROP.md](INTEROP.md).
 
-No node. No cloud. No coin. This is not a seal.
+Press is a printer, not a seal. Apache-2.0 does not license QUANTUM.
+No node. No cloud. No coin.
 Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different rail.
-Brand UNFORGE reserved. Code: Apache-2.0.
+Brand UNFORGE reserved. Code: Apache-2.0. See [LICENSE](LICENSE), [NOTICE](NOTICE), [COPYRIGHT.md](COPYRIGHT.md).
+The private QUANTUM node is not licensed here.
 
 <!-- ville/garde-hooks -->

@@ -29,4 +29,5 @@ You are looking at the public printer, not the node.
 ## Brand
 
 UNFORGE is a trademark of Carl Laliberté.
-This repo: Apache-2.0 stub until Carl. The private node is not licensed here.
+This repo: Apache-2.0. See LICENSE, NOTICE, COPYRIGHT.md.
+The private QUANTUM node is not licensed here.
