@@ -1,6 +1,7 @@
 # Juge
 
 Press imprime une carte depuis .unforge.json. Pas de nœud.
-Pas un sceau. Pas QUANTUM. La signature reste fermée.
-Contrat : https://github.com/carllaliberte/famille/blob/main/schema/juge.v0.json
+Press is a printer, not a juge. Pas un sceau. Pas QUANTUM. La signature reste fermée.
+Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different rail.
 Badge PREVIEW ≠ quittance.
+Jugement = Carl.
