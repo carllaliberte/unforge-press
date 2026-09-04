@@ -1,0 +1,6 @@
+Ville preview — doctrine
+After garde#12 MERGE one-PR (align famille).
+One PR per building. Stop if one already open.
+PREVIEW ≠ quittance UNFORGE.
+Lecture seule. Pas d'émission.
+Carl squash. NE MERGE PAS auto.
