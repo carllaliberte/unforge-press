@@ -269,6 +269,14 @@ class Readme(unittest.TestCase):
         self.assertIn("press.v0", text)
         self.assertIn("--schema", text)
 
+    def test_interdit_ne_signe_pas(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Unforge ne signe pas", text)
+        self.assertNotIn("ne signe pas /", text)
+        self.assertNotRegex(text, r"(?i)unforge signs")
+        self.assertNotRegex(text, r"(?i)press signs")
+        self.assertNotRegex(text, r"(?i)invent(ed|e|er)?\s+(a\s+)?(valid\s+)?signature")
+
 
 class Juge(unittest.TestCase):
     def test_n_est_pas_le_contrat_juge(self):
@@ -279,6 +287,12 @@ class Juge(unittest.TestCase):
         self.assertIn("--schema", text)
         self.assertIn("printer", text.lower())
         self.assertIn("not a juge", text.lower())
+
+    def test_interdit_ne_signe_pas(self):
+        text = (ROOT / "JUGE.md").read_text(encoding="utf-8")
+        self.assertIn("Unforge ne signe pas", text)
+        self.assertNotIn("ne signe pas /", text)
+        self.assertIn("PREVIEW ≠ quittance", text)
 
 
 class InteropCarte(unittest.TestCase):

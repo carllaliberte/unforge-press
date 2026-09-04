@@ -17,7 +17,8 @@ python3 press.py examples/bienvenue.txt.unforge.json --human
 Machine record on stdout (`press.v0`). `--human` prints `IMPRIMÉ` / `REFUS`. That is not a match verdict.
 
 Press prints ids. It does not open the signature.
-Unforge ne signe pas / does not sign.
+Unforge ne signe pas.
+Unforge does not sign.
 Verify the file with [unforge-check](https://github.com/carllaliberte/unforge-check). Check’s `VERT` means the file matches the card — not a quantum claim.
 Itinerary of stamps: [unforge-trail](https://github.com/carllaliberte/unforge-trail). Press one card, not the trail file.
 
