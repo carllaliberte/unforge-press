@@ -261,6 +261,15 @@ class CLI(unittest.TestCase):
         self.assertEqual(rec["erreur"], "json")
 
 
+class Readme(unittest.TestCase):
+    def test_n_est_pas_le_contrat_juge(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertNotIn("juge.v0.json", text)
+        self.assertNotRegex(text, r"(?i)contrat\s*:?\s*\S*juge\.v0")
+        self.assertIn("press.v0", text)
+        self.assertIn("--schema", text)
+
+
 class InteropCarte(unittest.TestCase):
     def test_demo_a_les_clefs_check_et_trail(self):
         p = _paquet()
