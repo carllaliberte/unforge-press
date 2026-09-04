@@ -23,7 +23,7 @@ Itinerary of stamps: [unforge-trail](https://github.com/carllaliberte/unforge-tr
 Agents: `python3 press.py --schema` · `from press import imprimer` · [INTEROP.md](INTEROP.md).
 
 No node. No cloud. No coin. This is not a seal.
-Contrat : https://github.com/carllaliberte/famille/blob/main/schema/juge.v0.json
+Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different rail.
 Brand UNFORGE reserved. Code: Apache-2.0.
 
 <!-- ville/garde-hooks -->
