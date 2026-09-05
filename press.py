@@ -2,7 +2,7 @@
 """UNFORGE Press — printable A5 pocket card from a .unforge.json.
 
 Prints ids. Does not open the signature. Does not verify the file.
-Not a seal. Not QUANTUM. No node. No cloud. No coin.
+Not a seal. No node. No cloud. No coin.
 """
 from __future__ import annotations
 
@@ -12,7 +12,9 @@ import json
 import sys
 from pathlib import Path
 
-FORMAT = "UNFORGE-PREUVE-v1"
+FORMAT_V1 = "UNFORGE-PREUVE-v1"
+FORMAT_V2 = "UNFORGE-PREUVE-v2"
+FORMATS = {FORMAT_V1, FORMAT_V2}
 TRAIL_FORMAT = "UNFORGE-TRAIL-v1"
 SCHEMA_ID = "press.v0"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "press.v0.json"
@@ -34,6 +36,7 @@ CSS = (
     ".meta b{display:inline-block;min-width:9em;font-weight:600}"
     ".pied{margin-top:auto;padding-top:16px;font-size:11px;color:#333;border-top:1px solid #111}"
     ".pied p{margin:0 0 6px}"
+    ".bandeau{border:1px solid #111;padding:8px 10px;margin:0 0 14px;font-size:12px}"
 )
 
 
@@ -73,13 +76,15 @@ def premiere_ligne(texte: str) -> str:
 def phrase_press(rec: dict) -> str:
     err = rec.get("erreur")
     if err == "format":
-        return "pas UNFORGE-PREUVE-v1."
+        return "pas UNFORGE-PREUVE-v1/v2."
     if err == "itinéraire":
         return "ceci est un itinéraire. Presse une carte .unforge.json."
     if err == "preuve introuvable":
         return "preuve introuvable."
     if err == "json":
         return "JSON illisible."
+    if rec.get("ok") and rec.get("legacy"):
+        return "v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
     if rec.get("ok"):
         return "Press n'ouvre pas la signature. Check le fait."
     if err:
@@ -100,13 +105,16 @@ def feuille(paquet: dict) -> dict:
     """Ids from a card. Does not open the signature. Does not hash a file."""
     if paquet.get("format") == TRAIL_FORMAT:
         return habiller({"ok": False, "erreur": "itinéraire"})
-    if paquet.get("format") != FORMAT:
+    fmt = paquet.get("format")
+    if fmt not in FORMATS:
         return habiller({"ok": False, "erreur": "format"})
     objet = paquet.get("objet") or {}
     sha = objet.get("sha256") or ""
     return habiller(
         {
             "ok": True,
+            "format": fmt,
+            "legacy": fmt == FORMAT_V1,
             "id": paquet.get("id"),
             "card_id": paquet.get("card_id"),
             "token_id": paquet.get("token_id"),
@@ -143,6 +151,9 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
     )
     record = {k: rec[k] for k in rec}
     payload = html.escape(json.dumps(record, ensure_ascii=False, indent=2), quote=False)
+    bandeau = ""
+    if paquet.get("format") == FORMAT_V1:
+        bandeau = "<p class='bandeau'>v1 n'inclut pas objet — resseller v2</p>"
     return (
         "<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'/>"
         f"<title>UNFORGE Press — {html.escape(str(nom))}</title>"
@@ -151,12 +162,13 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
         "<article class='card'>"
         "<div class='marque'>UNFORGE · PRESS</div>"
         f"<h1>{html.escape(str(nom))}</h1>"
+        f"{bandeau}"
         f"<p class='fait'>{html.escape(fait)}</p>"
         "<div class='libelle'>objet sha256 — printed, not recomputed</div>"
         f"<div class='hex'>{html.escape(blocs_hex(str(sha)))}</div>"
         f"<div class='meta'>{meta}</div>"
         "<footer class='pied'>"
-        "<p>Pocket card. Not a seal. Not QUANTUM.</p>"
+        "<p>Pocket card. Not a seal.</p>"
         "<p>Verify the file with unforge-check. Stamps: unforge-trail.</p>"
         "<p>The node stays yours. The attestation leaves.</p>"
         "</footer></article></body></html>"
@@ -205,7 +217,8 @@ def main(argv: list[str] | None = None) -> int:
             "If a file is given, Press looks for FILE.unforge.json beside it.\n"
             "Writes A5 HTML. Machine record (press.v0) on stdout.\n"
             "Exit 0 = printed. Exit 1 = refuse. Exit 2 = unreadable.\n"
-            "ok: true means the card is UNFORGE-PREUVE-v1 and HTML was written.\n"
+            "ok: true means the card is UNFORGE-PREUVE-v1 or v2 and HTML was written.\n"
+            "v1 is printed with a banner: resseller v2. It is not a file match.\n"
             "It does not mean the file matches — that verdict is unforge-check.\n"
             "Agents: python3 press.py --schema   or   from press import imprimer"
         ),

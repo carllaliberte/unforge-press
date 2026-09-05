@@ -6,7 +6,7 @@ You are looking at the public printer, not the node.
 
 - Print: `python press.py FILE.unforge.json` or `python press.py FILE` (looks for `FILE.unforge.json`)
 - Interop (no server): `python press.py --schema` · `from press import imprimer` · INTEROP.md
-- Treat `ok: true` as “HTML written from a UNFORGE-PREUVE-v1 card”
+- Treat `ok: true` as “HTML written from a UNFORGE-PREUVE-v1 or v2 card”. v1 prints a banner: resseller v2. Never VERT.
 - Send match questions to [unforge-check](https://github.com/carllaliberte/unforge-check) — `VERT` there means the file matches, not a quantum claim
 - Send itinerary questions to [unforge-trail](https://github.com/carllaliberte/unforge-trail) — press one stamp card, not the trail file
 - Keep proofs next to files; never invent a signature
@@ -22,7 +22,7 @@ You are looking at the public printer, not the node.
 
 ## Formats
 
-- Proof: `UNFORGE-PREUVE-v1` — unforge-check SPEC.md
+- Proof: `UNFORGE-PREUVE-v2` (v1 printed as legacy) — unforge-check SPEC.md
 - Trail: `UNFORGE-TRAIL-v1` — repo unforge-trail (refused here)
 - Press: HTML A5 + `press.v0` record — this repo
 

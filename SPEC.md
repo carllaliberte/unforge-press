@@ -2,7 +2,7 @@
 
 A pocket card is HTML named `*.press.html` printed from a `*.unforge.json` that sits beside the object it attests.
 
-Card format: `UNFORGE-PREUVE-v1` — see [unforge-check SPEC](https://github.com/carllaliberte/unforge-check/blob/main/SPEC.md).
+Card format: `UNFORGE-PREUVE-v2` (v1 still prints, with a banner: v1 n'inclut pas objet — resseller v2) — see [unforge-check SPEC](https://github.com/carllaliberte/unforge-check/blob/main/SPEC.md).
 
 Required keys on the card: `format`, `marque`, `id`, `card_id`, `card_public`, `token_id`, `empreinte`, `signature`, `fait`, `created_at`.
 

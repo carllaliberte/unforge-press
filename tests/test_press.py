@@ -60,8 +60,10 @@ class Feuille(unittest.TestCase):
         self.assertEqual(rec["sha256"], "e8fe730c49dc859358e3b94376fb0a5f0916aca21b18457eb3d8391c4ebc0838")
         self.assertEqual(rec["empreinte"], "985d3ff3389f8c64c87eeb829ccebf4ae09b943fd3500e442614b1e1731498e5")
         self.assertEqual(rec["fait"], "fichier d'accueil UNFORGE")
-        self.assertEqual(rec["phrase"], "Press n'ouvre pas la signature. Check le fait.")
+        self.assertTrue(rec.get("legacy"))
+        self.assertIn("resseller v2", rec["phrase"])
         self.assertNotIn("signature", rec)
+        self.assertNotIn("VERT", rec["phrase"])
 
     def test_n_ouvre_pas_une_empreinte_cassée(self):
         p = _paquet()
@@ -83,7 +85,7 @@ class Feuille(unittest.TestCase):
         rec = feuille({"format": "NON"})
         self.assertFalse(rec["ok"])
         self.assertEqual(rec["erreur"], "format")
-        self.assertEqual(rec["phrase"], "pas UNFORGE-PREUVE-v1.")
+        self.assertEqual(rec["phrase"], "pas UNFORGE-PREUVE-v1/v2.")
 
     def test_itinéraire_n_est_pas_une_carte(self):
         rec = feuille(
@@ -96,6 +98,18 @@ class Feuille(unittest.TestCase):
         self.assertEqual(rec["erreur"], "itinéraire")
         self.assertIn("itinéraire", rec["phrase"])
         self.assertIn(".unforge.json", rec["phrase"])
+
+
+
+    def test_v2_pas_erreur_format(self):
+        p = _paquet()
+        p["format"] = "UNFORGE-PREUVE-v2"
+        rec = feuille(p)
+        self.assertTrue(rec["ok"])
+        self.assertNotEqual(rec.get("erreur"), "format")
+        self.assertFalse(rec.get("legacy"))
+        self.assertEqual(rec["format"], "UNFORGE-PREUVE-v2")
+        self.assertNotIn("VERT", rec["phrase"])
 
 
 class Html(unittest.TestCase):
@@ -118,6 +132,17 @@ class Html(unittest.TestCase):
         self.assertNotIn("VERT", page)
         self.assertNotIn("#39ff88", page)
         self.assertNotIn("quantique", page.lower())
+
+
+    def test_v1_bandeau(self):
+        page = html_carte(_paquet())
+        self.assertIn("resseller v2", page)
+
+    def test_v2_sans_bandeau(self):
+        p = _paquet()
+        p["format"] = "UNFORGE-PREUVE-v2"
+        page = html_carte(p)
+        self.assertNotIn("resseller v2", page)
 
     def test_blocs_hex(self):
         self.assertEqual(blocs_hex("e8fe730c49dc8593"), "e8fe730c 49dc8593")
@@ -219,6 +244,21 @@ class CLI(unittest.TestCase):
         r = _run([])
         self.assertEqual(r.returncode, 2)
         self.assertIn(".unforge.json", r.stderr)
+
+
+    def test_v2_cli_exit_0(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            card = Path(tmp) / "x.unforge.json"
+            p = _paquet()
+            p["format"] = "UNFORGE-PREUVE-v2"
+            card.write_text(json.dumps(p), encoding="utf-8")
+            r = _run([str(card), "-o", str(dest)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        rec = json.loads(r.stdout)
+        self.assertTrue(rec["ok"])
+        self.assertNotEqual(rec.get("erreur"), "format")
+        self.assertFalse(rec.get("legacy"))
 
     def test_format_exit_1(self):
         with tempfile.TemporaryDirectory() as tmp:
