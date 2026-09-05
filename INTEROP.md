@@ -22,7 +22,7 @@ from pathlib import Path
 from press import imprimer, feuille, schema
 
 rec = imprimer(Path("doc.pdf.unforge.json"))
-assert rec["ok"] is True          # card is UNFORGE-PREUVE-v1 and HTML was written
+assert rec["ok"] is True          # card is UNFORGE-PREUVE-v1 or v2 and HTML was written
 assert rec["geste"] == "press"
 schema()                          # press.v0
 ```
@@ -31,14 +31,14 @@ schema()                          # press.v0
 
 `ok: true` is **not** a match. Match is [unforge-check](https://github.com/carllaliberte/unforge-check): `ok: true` there, `VERT` in `--human`, means the file still matches the card. Not a quantum claim.
 
-A trail is not a card. [unforge-trail](https://github.com/carllaliberte/unforge-trail) stamps are each a `UNFORGE-PREUVE-v1` file. Press that file. A `UNFORGE-TRAIL-v1` itinerary is refused here.
+A trail is not a card. [unforge-trail](https://github.com/carllaliberte/unforge-trail) stamps are each a `UNFORGE-PREUVE-v1` or `UNFORGE-PREUVE-v2` file. Press that file. A `UNFORGE-TRAIL-v1` itinerary is refused here.
 
 ## Exit
 
 | Code | Meaning |
 |---|---|
 | 0 | printed (`ok: true`, HTML written) |
-| 1 | refuse (not `UNFORGE-PREUVE-v1`, or an itinerary) |
+| 1 | refuse (not `UNFORGE-PREUVE-v1`/`v2`, or an itinerary) |
 | 2 | unreadable (missing path, bad JSON) |
 
 ## Record
