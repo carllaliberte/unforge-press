@@ -301,6 +301,19 @@ class CLI(unittest.TestCase):
         self.assertEqual(rec["erreur"], "json")
 
 
+
+    def test_une_ligne_readme_et_imprime(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("python3 press.py examples/bienvenue.txt.unforge.json", readme)
+        self.assertIn("IMPRIMÉ", readme)
+        self.assertIn("REFUS", readme)
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            rec = imprimer(CARTE, dest)
+            self.assertTrue(rec["ok"])
+            page = dest.read_text(encoding="utf-8")
+            self.assertIn("resseller v2", page)
+
 class Readme(unittest.TestCase):
     def test_n_est_pas_le_contrat_juge(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
