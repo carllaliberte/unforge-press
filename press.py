@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import sys
+from datetime import date
 from pathlib import Path
 
 try:
@@ -22,6 +24,8 @@ FORMAT_V2 = "UNFORGE-PREUVE-v2"
 FORMATS = {FORMAT_V1, FORMAT_V2}
 TRAIL_FORMAT = "UNFORGE-TRAIL-v1"
 MESURE_FORMAT = "MESURE-v0"
+ANCRAGE_FORMAT = "ANCRAGE-v0"
+DATE_ANCRAGE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SCHEMA_ID = "press.v0"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "press.v0.json"
 
@@ -80,6 +84,16 @@ def voisin_mesure(preuve: Path) -> Path:
     return Path(str(preuve) + ".mesure.json")
 
 
+def voisin_ancrage(preuve: Path) -> Path:
+    """ANCRAGE-v0 card that sits beside a proof: FILE.ancrage.json."""
+    name = preuve.name
+    if name.endswith(".unforge.json"):
+        return preuve.with_name(name[: -len(".unforge.json")] + ".ancrage.json")
+    if name.endswith(".ancrage.json"):
+        return preuve
+    return Path(str(preuve) + ".ancrage.json")
+
+
 def blocs_hex(valeur: str) -> str:
     hexa = "".join(c for c in (valeur or "") if c.isalnum())[:64]
     return " ".join(hexa[i : i + 8] for i in range(0, len(hexa), 8))
@@ -105,6 +119,22 @@ def phrase_press(rec: dict) -> str:
         return "pas MESURE-v0."
     if err == "mesure lectures":
         return "MESURE déjà détruite ou plus de lecture."
+    if err == "ancrage introuvable":
+        return "ANCRAGE introuvable. Re-press: FILE.ancrage.json."
+    if err == "ancrage":
+        return "pas ANCRAGE-v0."
+    if err == "ancrage date":
+        return "ANCRAGE: date illisible."
+    if err == "ancrage perime":
+        return "ANCRAGE périmé — à re-mesurer, pas faux."
+    if rec.get("ok") and rec.get("ancrage") and rec.get("mesure"):
+        if rec.get("legacy"):
+            return "ANCRAGE tient. MESURE consommée. v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
+        return "ANCRAGE tient. MESURE consommée. Press n'ouvre pas la signature. Check le fait."
+    if rec.get("ok") and rec.get("ancrage"):
+        if rec.get("legacy"):
+            return "ANCRAGE tient. v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
+        return "ANCRAGE tient. Press n'ouvre pas la signature. Check le fait."
     if rec.get("ok") and rec.get("mesure"):
         if rec.get("legacy"):
             return "MESURE consommée. v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
@@ -180,6 +210,40 @@ def consulter_mesure(path: Path) -> dict:
         _mesure_unlock(fh)
 
 
+def verifier_ancrage(path: Path, today: date | None = None) -> dict:
+    """Read ANCRAGE-v0. Does not write. Does not sign.
+
+    Interop with ancrage-protocol: verifier refuses a past date.
+    Expired avant = à re-mesurer, not fake. A new date is a new act
+    (ancrage.py ecrire), not this printer. Reculer in place is forbidden.
+    """
+    if not path.is_file():
+        return habiller({"ok": False, "erreur": "ancrage introuvable", "attendu": str(path)})
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return habiller({"ok": False, "erreur": "json"})
+    if data.get("format") != ANCRAGE_FORMAT:
+        return habiller({"ok": False, "erreur": "ancrage"})
+    avant = str(data.get("avant") or "")
+    if not DATE_ANCRAGE.match(avant):
+        return habiller({"ok": False, "erreur": "ancrage date"})
+    y, m, d = map(int, avant.split("-"))
+    try:
+        day = date(y, m, d)
+    except ValueError:
+        return habiller({"ok": False, "erreur": "ancrage date"})
+    now = today or date.today()
+    if day <= now:
+        return habiller({"ok": False, "erreur": "ancrage perime", "avant": avant})
+    return {
+        "format": ANCRAGE_FORMAT,
+        "objet": data.get("objet"),
+        "avant": avant,
+        "verifie": True,
+    }
+
+
 def feuille(paquet: dict) -> dict:
     """Ids from a card. Does not open the signature. Does not hash a file."""
     if paquet.get("format") == TRAIL_FORMAT:
@@ -228,6 +292,14 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
     if mesure.get("consomme"):
         etat = "detruit" if mesure.get("detruit") else f"lectures={mesure.get('lectures')}"
         rows.append(("mesure", f"MESURE-v0 consommée · {etat}"))
+    ancrage = rec.get("ancrage") or {}
+    if ancrage.get("verifie"):
+        rows.append(
+            (
+                "ancrage",
+                f"ANCRAGE-v0 · {ancrage.get('objet') or '—'} · avant {ancrage.get('avant')}",
+            )
+        )
     meta = "".join(
         f"<div><b>{html.escape(k)}</b> {html.escape(str(v if v not in (None, '') else '—'))}</div>"
         for k, v in rows
@@ -258,21 +330,43 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
             if mesure.get("consomme")
             else ""
         )
+        + (
+            "<p>ANCRAGE tient. Périmé = re-mesurer, pas faux. Not a receipt.</p>"
+            if ancrage.get("verifie")
+            else ""
+        )
         + "<p>The node stays yours. The attestation leaves.</p>"
         "</footer></article></body></html>"
     )
 
 
-def imprimer(preuve: Path, dest: Path | None = None, mesure: Path | None = None) -> dict:
+def imprimer(
+    preuve: Path,
+    dest: Path | None = None,
+    mesure: Path | None = None,
+    ancrage: Path | None = None,
+    *,
+    today: date | None = None,
+) -> dict:
     """Read a card, write A5 HTML, return the press.v0 record. Never signs.
 
     If ``mesure`` is set, spend one MESURE-v0 reading (kit presse / porte 8).
     Consulting consumes. Press does not open a measure. It does not fork one.
+
+    If ``ancrage`` is set, verify an ANCRAGE-v0 date (re-press / portes 3+7).
+    Read-only. Expired avant refuses the print — à re-mesurer, not fake.
+    Press does not write a new date. A new act is ancrage-protocol ecrire.
     """
     paquet = json.loads(preuve.read_text(encoding="utf-8"))
     rec = feuille(paquet)
     if not rec.get("ok"):
         return rec
+    if ancrage is not None:
+        checked = verifier_ancrage(ancrage, today=today)
+        if checked.get("ok") is False:
+            return checked
+        rec["ancrage"] = checked
+        rec["phrase"] = phrase_press(rec)
     if mesure is not None:
         spent = consulter_mesure(mesure)
         if spent.get("ok") is False:
@@ -312,10 +406,14 @@ def main(argv: list[str] | None = None) -> int:
             "  python3 press.py document.pdf.unforge.json -o /tmp/card.html\n"
             "  python3 press.py document.pdf.unforge.json --human\n"
             "  python3 press.py document.pdf.unforge.json --mesure\n"
+            "  python3 press.py document.pdf.unforge.json --ancrage examples/billet.ancrage.json\n"
             "\n"
             "If a file is given, Press looks for FILE.unforge.json beside it.\n"
             "Kit presse (porte 8): --mesure spends one MESURE-v0 reading\n"
             "(sibling FILE.mesure.json, or a path). Consulting consumes.\n"
+            "Re-press (portes 3+7): --ancrage verifies ANCRAGE-v0 (sibling\n"
+            "FILE.ancrage.json, or a path). Read-only. Expired = re-measure,\n"
+            "not fake. Press does not write a new date.\n"
             "Writes A5 HTML. Machine record (press.v0) on stdout.\n"
             "Exit 0 = printed. Exit 1 = refuse. Exit 2 = unreadable.\n"
             "ok: true means the card is UNFORGE-PREUVE-v1 or v2 and HTML was written.\n"
@@ -336,6 +434,16 @@ def main(argv: list[str] | None = None) -> int:
         const="",
         default=None,
         help="consume a MESURE-v0 reading (sibling FILE.mesure.json, or a path). Not a receipt.",
+    )
+    p.add_argument(
+        "--ancrage",
+        nargs="?",
+        const="",
+        default=None,
+        help=(
+            "verify an ANCRAGE-v0 date (sibling FILE.ancrage.json, or a path). "
+            "Expired = re-measure, not fake. Not a receipt."
+        ),
     )
     p.add_argument("--schema", action="store_true", help="print press.v0 JSON Schema and exit")
     sortie = p.add_mutually_exclusive_group()
@@ -362,9 +470,12 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         dest = Path(args.out) if args.out else None
         mesure = None
+        ancrage = None
         if args.mesure is not None:
             mesure = Path(args.mesure) if args.mesure else voisin_mesure(preuve)
-        rec = imprimer(preuve, dest, mesure)
+        if args.ancrage is not None:
+            ancrage = Path(args.ancrage) if args.ancrage else voisin_ancrage(preuve)
+        rec = imprimer(preuve, dest, mesure, ancrage)
     except FileNotFoundError:
         attendu = str(voisin_carte(Path(args.preuve)))
         rec = habiller({"ok": False, "erreur": "preuve introuvable", "attendu": attendu})

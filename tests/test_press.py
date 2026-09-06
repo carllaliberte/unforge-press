@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,12 +26,16 @@ from press import (  # noqa: E402
     phrase_press,
     resoudre,
     schema,
+    verifier_ancrage,
+    voisin_ancrage,
     voisin_carte,
     voisin_mesure,
 )
 
 CARTE = ROOT / "examples" / "bienvenue.txt.unforge.json"
 MESURE = ROOT / "examples" / "bienvenue.txt.mesure.json"
+BILLET = ROOT / "examples" / "billet.ancrage.json"
+GARANTIE = ROOT / "examples" / "garantie.ancrage.json"
 FICHIER = ROOT / "examples" / "bienvenue.txt"
 PY = sys.executable
 
@@ -309,6 +314,7 @@ class CLI(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("python3 press.py examples/bienvenue.txt.unforge.json", readme)
         self.assertIn("--mesure", readme)
+        self.assertIn("--ancrage", readme)
         self.assertIn("IMPRIMÉ", readme)
         self.assertIn("REFUS", readme)
         with tempfile.TemporaryDirectory() as tmp:
@@ -459,6 +465,176 @@ class Mesure(unittest.TestCase):
             self.assertFalse(dest.exists())
 
 
+class Ancrage(unittest.TestCase):
+    def test_voisin(self):
+        self.assertEqual(
+            voisin_ancrage(CARTE),
+            ROOT / "examples" / "bienvenue.txt.ancrage.json",
+        )
+        self.assertEqual(voisin_ancrage(BILLET), BILLET)
+
+    def test_verifier_billet_et_garantie(self):
+        for carte, objet in ((BILLET, "billet"), (GARANTIE, "garantie")):
+            before = carte.read_text(encoding="utf-8")
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / f"{objet}.html"
+                rec = imprimer(CARTE, dest, ancrage=carte)
+                self.assertTrue(rec["ok"])
+                self.assertTrue(rec["ancrage"]["verifie"])
+                self.assertEqual(rec["ancrage"]["objet"], objet)
+                self.assertEqual(rec["ancrage"]["avant"], "2028-08-31")
+                self.assertEqual(rec["ancrage"]["format"], "ANCRAGE-v0")
+                self.assertIn("ANCRAGE tient", rec["phrase"])
+                self.assertNotIn("VERT", rec["phrase"])
+                page = dest.read_text(encoding="utf-8")
+                self.assertIn("ANCRAGE tient", page)
+                self.assertIn("re-mesurer", page)
+                self.assertIn(objet, page)
+                self.assertIn("2028-08-31", page)
+                self.assertIn("Not a receipt", page)
+                self.assertIn("Not a seal", page)
+                self.assertNotIn("VERT", page)
+                payload = page.split("id='unforge-press'>", 1)[1].split("</script>", 1)[0]
+                embedded = json.loads(payload)
+                self.assertTrue(embedded["ancrage"]["verifie"])
+                self.assertNotIn("signature", embedded)
+            disk = json.loads(carte.read_text(encoding="utf-8"))
+            self.assertEqual(disk["format"], "ANCRAGE-v0")
+            self.assertEqual(disk["objet"], objet)
+            self.assertEqual(disk["avant"], "2028-08-31")
+            self.assertNotIn("verifie", disk)
+            self.assertEqual(carte.read_text(encoding="utf-8"), before)
+
+    def test_fixture_n_est_pas_ecrite(self):
+        for carte, objet in ((BILLET, "billet"), (GARANTIE, "garantie")):
+            raw = json.loads(carte.read_text(encoding="utf-8"))
+            self.assertEqual(raw["format"], "ANCRAGE-v0")
+            self.assertEqual(raw["objet"], objet)
+            self.assertEqual(raw["avant"], "2028-08-31")
+            self.assertNotIn("verifie", raw)
+            again = verifier_ancrage(carte, today=date(2026, 9, 6))
+            self.assertTrue(again.get("verifie"))
+            self.assertEqual(json.loads(carte.read_text(encoding="utf-8")), raw)
+
+    def test_sans_ancrage_n_invente_pas(self):
+        rec = feuille(_paquet())
+        self.assertNotIn("ancrage", rec)
+        page = html_carte(_paquet())
+        self.assertNotIn("ANCRAGE tient", page)
+
+    def test_refuse_perime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "no.html"
+            rec = imprimer(CARTE, dest, ancrage=BILLET, today=date(2028, 8, 31))
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage perime")
+            self.assertIn("re-mesurer", rec["phrase"])
+            self.assertIn("pas faux", rec["phrase"])
+            self.assertNotIn("VERT", rec["phrase"])
+            self.assertFalse(dest.exists())
+            raw = json.loads(BILLET.read_text(encoding="utf-8"))
+            self.assertEqual(raw["avant"], "2028-08-31")
+            self.assertNotIn("verifie", raw)
+
+    def test_refuse_date_passee_sur_disque(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "expire.ancrage.json"
+            carte.write_text(
+                json.dumps(
+                    {"format": "ANCRAGE-v0", "objet": "billet", "avant": "2020-01-01"}
+                ),
+                encoding="utf-8",
+            )
+            dest = Path(tmp) / "no.html"
+            rec = imprimer(CARTE, dest, ancrage=carte)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage perime")
+            self.assertFalse(dest.exists())
+            self.assertEqual(json.loads(carte.read_text(encoding="utf-8"))["avant"], "2020-01-01")
+
+    def test_refuse_mauvais_format(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "x.ancrage.json"
+            carte.write_text(json.dumps({"format": "NON", "avant": "2028-08-31"}), encoding="utf-8")
+            rec = imprimer(CARTE, Path(tmp) / "out.html", ancrage=carte)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage")
+
+    def test_refuse_date_illisible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "x.ancrage.json"
+            carte.write_text(
+                json.dumps({"format": "ANCRAGE-v0", "objet": "billet", "avant": "demain"}),
+                encoding="utf-8",
+            )
+            rec = imprimer(CARTE, Path(tmp) / "out.html", ancrage=carte)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage date")
+
+    def test_cli_billet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--ancrage", str(BILLET)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(rec["ancrage"]["verifie"])
+            self.assertEqual(rec["ancrage"]["objet"], "billet")
+            self.assertIn("ANCRAGE tient", rec["phrase"])
+            self.assertNotIn("VERT", r.stdout)
+
+    def test_cli_garantie(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--ancrage", str(GARANTIE)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertEqual(rec["ancrage"]["objet"], "garantie")
+
+    def test_cli_voisin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            card = Path(tmp) / "bienvenue.txt.unforge.json"
+            card.write_text(CARTE.read_text(encoding="utf-8"), encoding="utf-8")
+            (Path(tmp) / "bienvenue.txt.ancrage.json").write_text(
+                BILLET.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            dest = Path(tmp) / "out.html"
+            r = _run([str(card), "-o", str(dest), "--ancrage"])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ancrage"]["verifie"])
+            self.assertEqual(rec["ancrage"]["objet"], "billet")
+
+    def test_cli_perime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "expire.ancrage.json"
+            carte.write_text(
+                json.dumps(
+                    {"format": "ANCRAGE-v0", "objet": "garantie", "avant": "2020-01-01"}
+                ),
+                encoding="utf-8",
+            )
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--ancrage", str(carte)])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage perime")
+            self.assertIn("re-mesurer", rec["phrase"])
+            self.assertNotIn("VERT", r.stdout)
+            self.assertFalse(dest.exists())
+
+    def test_cli_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--ancrage", str(Path(tmp) / "nope.ancrage.json")])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "ancrage introuvable")
+            self.assertFalse(dest.exists())
+
+
 class Juge(unittest.TestCase):
     def test_n_est_pas_le_contrat_juge(self):
         text = (ROOT / "JUGE.md").read_text(encoding="utf-8")
@@ -475,6 +651,7 @@ class Juge(unittest.TestCase):
         self.assertNotIn("ne signe pas /", text)
         self.assertIn("PREVIEW ≠ quittance", text)
         self.assertIn("MESURE consommée ≠ quittance", text)
+        self.assertIn("ANCRAGE périmé ≠ faux", text)
 
 
 class InteropCarte(unittest.TestCase):

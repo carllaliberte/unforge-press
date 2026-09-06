@@ -26,6 +26,15 @@ python3 press.py examples/bienvenue.txt.unforge.json --mesure /tmp/bienvenue.txt
 
 `--mesure` without a path looks for `FILE.mesure.json` beside the card. Default print does not touch MESURE.
 
+Re-press (portes 3+7) — verify an ANCRAGE-v0 date. Read-only. Expired = re-measure, not fake. Not a receipt:
+
+```bash
+python3 press.py examples/bienvenue.txt.unforge.json --ancrage examples/billet.ancrage.json -o /tmp/billet.html
+python3 press.py examples/bienvenue.txt.unforge.json --ancrage examples/garantie.ancrage.json -o /tmp/garantie.html
+```
+
+`--ancrage` without a path looks for `FILE.ancrage.json` beside the card. Press does not write a new date. A new act is [ancrage-protocol](https://github.com/carllaliberte/ancrage-protocol) `ecrire`. Default print does not touch ANCRAGE.
+
 Machine record on stdout (`press.v0`).
 
 Press prints ids. It does not open the signature.
