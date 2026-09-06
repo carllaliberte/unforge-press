@@ -8,4 +8,5 @@ Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different
 Badge PREVIEW ≠ quittance.
 MESURE consommée ≠ quittance.
 ANCRAGE périmé ≠ faux. À re-mesurer.
+Carte de poche ≠ Wallet paiement.
 Jugement = Carl.

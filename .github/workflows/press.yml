@@ -19,7 +19,14 @@ jobs:
           test -f /tmp/card.html
           grep -q "QT-PR-DEMO0001" /tmp/card.html
           grep -q "unforge-press" /tmp/card.html
+          grep -q "Carte de poche" /tmp/card.html
+          grep -q "Not a payment Wallet" /tmp/card.html
+          grep -q "Not a receipt" /tmp/card.html
           if grep -q "VERT" /tmp/card.html; then echo "print must not say VERT"; exit 1; fi
+          if grep -qiE 'Apple Wallet|Google Wallet|Add to Wallet|App Store|pkpass' /tmp/card.html; then echo "print must not be a payment Wallet"; exit 1; fi
+          python3 press.py examples/bienvenue.txt.unforge.json -o /tmp/poche.html
+          grep -q "Carte de poche" /tmp/poche.html
+          grep -q "Share or print" /tmp/poche.html
       - name: kit-presse-mesure
         run: |
           cp examples/bienvenue.txt.mesure.json /tmp/bienvenue.txt.mesure.json

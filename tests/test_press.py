@@ -136,7 +136,16 @@ class Html(unittest.TestCase):
         self.assertIn("&lt;b&gt;xss&lt;/b&gt;", page)
         self.assertIn("application/json", page)
         self.assertIn("id='unforge-press'", page)
+        self.assertIn("Carte de poche", page)
+        self.assertIn("Share or print", page)
+        self.assertIn("Not a payment Wallet", page)
         self.assertIn("Not a seal", page)
+        self.assertIn("Not a receipt", page)
+        self.assertNotIn("Apple Wallet", page)
+        self.assertNotIn("Google Wallet", page)
+        self.assertNotIn("Add to Wallet", page)
+        self.assertNotIn("App Store", page)
+        self.assertNotIn("pkpass", page)
         self.assertNotIn("VERT", page)
         self.assertNotIn("#39ff88", page)
         self.assertNotIn("quantique", page.lower())
@@ -171,6 +180,11 @@ class Imprimer(unittest.TestCase):
         self.assertIn("bienvenue.txt", page)
         self.assertIn("unforge-check", page)
         self.assertIn("unforge-trail", page)
+        self.assertIn("Carte de poche", page)
+        self.assertIn("Not a payment Wallet", page)
+        self.assertIn("Not a receipt", page)
+        self.assertNotIn("Apple Wallet", page)
+        self.assertNotIn("Add to Wallet", page)
         payload = page.split("id='unforge-press'>", 1)[1].split("</script>", 1)[0]
         embedded = json.loads(payload)
         self.assertEqual(embedded["geste"], "press")
@@ -196,6 +210,8 @@ class SchemaEtHabit(unittest.TestCase):
         self.assertIn("ok", s["required"])
         self.assertIn("geste", s["required"])
         self.assertIn("not a match", s["description"].lower())
+        self.assertIn("carte de poche", s["properties"]["ok"]["description"].lower())
+        self.assertIn("not a payment wallet", s["properties"]["ok"]["description"].lower())
 
     def test_habiller_erreur(self):
         rec = habiller({"ok": False, "erreur": "json"})
@@ -247,6 +263,18 @@ class CLI(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         rec = json.loads(r.stdout)
         self.assertEqual(rec["title"], "unforge.press.v0")
+        html_doc = rec["properties"]["html"]["description"].lower()
+        self.assertIn("carte de poche", html_doc)
+        self.assertIn("not a payment wallet", html_doc)
+
+    def test_help_carte_de_poche(self):
+        r = _run(["--help"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("carte de poche", r.stdout.lower())
+        self.assertIn("not a payment wallet", r.stdout.lower())
+        self.assertNotIn("Add to Wallet", r.stdout)
+        self.assertNotIn("App Store", r.stdout)
+        self.assertNotIn("pkpass", r.stdout)
 
     def test_sans_args(self):
         r = _run([])
@@ -313,6 +341,7 @@ class CLI(unittest.TestCase):
     def test_une_ligne_readme_et_imprime(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("python3 press.py examples/bienvenue.txt.unforge.json", readme)
+        self.assertIn("-o /tmp/poche.html", readme)
         self.assertIn("--mesure", readme)
         self.assertIn("--ancrage", readme)
         self.assertIn("IMPRIMÉ", readme)
@@ -339,6 +368,46 @@ class Readme(unittest.TestCase):
         self.assertNotRegex(text, r"(?i)unforge signs")
         self.assertNotRegex(text, r"(?i)press signs")
         self.assertNotRegex(text, r"(?i)invent(ed|e|er)?\s+(a\s+)?(valid\s+)?signature")
+
+    def test_carte_de_poche_pas_wallet(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Carte de poche", text)
+        self.assertIn("Not a payment Wallet", text)
+        self.assertIn("Not a seal", text)
+        self.assertIn("Not a receipt", text)
+        self.assertIn("No App Store", text)
+        self.assertNotIn("Add to Wallet", text)
+        self.assertNotIn("pkpass", text)
+        self.assertNotRegex(text, r"(?i)apple wallet")
+        self.assertNotRegex(text, r"(?i)google wallet")
+
+
+class Poche(unittest.TestCase):
+    def test_spec_et_interop(self):
+        spec = (ROOT / "SPEC.md").read_text(encoding="utf-8")
+        interop = (ROOT / "INTEROP.md").read_text(encoding="utf-8")
+        self.assertIn("carte de poche", spec.lower())
+        self.assertIn("Not a payment Wallet", spec)
+        self.assertIn("carte de poche", interop.lower())
+        self.assertIn("Not a payment Wallet", interop)
+        self.assertIn("payment Wallet", interop)
+        self.assertNotIn("Add to Wallet", spec)
+        self.assertNotIn("Add to Wallet", interop)
+        self.assertNotIn("pkpass", spec)
+        self.assertNotIn("pkpass", interop)
+
+    def test_agents_interdit_wallet(self):
+        text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("carte de poche", text.lower())
+        self.assertIn("payment Wallet", text)
+        self.assertIn("Apple Wallet", text)
+        self.assertIn("Google Wallet", text)
+        self.assertIn("App Store", text)
+
+    def test_preview_carte(self):
+        text = (ROOT / "PREVIEW-CARTE.md").read_text(encoding="utf-8")
+        self.assertIn("carte de poche", text.lower())
+        self.assertIn("Pas Wallet paiement", text)
 
 
 class Mesure(unittest.TestCase):
@@ -652,6 +721,7 @@ class Juge(unittest.TestCase):
         self.assertIn("PREVIEW ≠ quittance", text)
         self.assertIn("MESURE consommée ≠ quittance", text)
         self.assertIn("ANCRAGE périmé ≠ faux", text)
+        self.assertIn("Carte de poche ≠ Wallet paiement", text)
 
 
 class InteropCarte(unittest.TestCase):

@@ -8,7 +8,7 @@
   "properties": {
     "ok": {
       "type": "boolean",
-      "description": "Card is UNFORGE-PREUVE-v1 or v2 and the A5 HTML was written. v1 is legacy (banner: resseller v2). Not a file-match verdict. Not a seal."
+      "description": "Card is UNFORGE-PREUVE-v1 or v2 and the A5 carte de poche was written. v1 is legacy (banner: resseller v2). Not a file-match verdict. Share or print. Not a payment Wallet. Not a seal. Not a receipt."
     },
     "geste": { "const": "press" },
     "schema": { "const": "press.v0" },
@@ -28,7 +28,7 @@
     "algo": { "type": "string" },
     "created_at": { "type": ["string", "null"] },
     "fait": { "type": "string" },
-    "html": { "type": "string", "description": "Path of the A5 artifact when written." },
+    "html": { "type": "string", "description": "Path of the A5 carte de poche when written. Share or print. Not a payment Wallet." },
     "marque": { "const": "UNFORGE" },
     "noeud": { "const": "non requis" },
     "phrase": { "type": "string" },

@@ -1,6 +1,6 @@
 # Qualité
 
-Carte A5. Lecture seule.
+Carte de poche A5. Lecture seule. Pas Wallet paiement.
 Press imprime les ids. Check vérifie le fichier.
 `ok: true` ici ≠ match. `VERT` chez check = match, pas « quantique ».
 PREVIEW ≠ quittance UNFORGE.

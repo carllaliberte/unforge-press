@@ -17,7 +17,8 @@ python3 press.py --schema
 ```
 
 `FILE` alone looks for `FILE.unforge.json` beside it.
-Writes `FILE.press.html` (A5). Machine record on stdout.
+Writes `FILE.press.html` (A5 carte de poche). Share or print. Not a payment Wallet.
+Machine record on stdout.
 
 ## Python
 
@@ -65,4 +66,4 @@ Re-press (portes 3+7): `--ancrage` verifies an `ANCRAGE-v0` card ([ancrage-proto
 
 ## Do not
 
-Stand up a server. Open `quantum.db`. Invent a signature. Call this a coin. Call this a seal. Call print quantum-green.
+Stand up a server. Open `quantum.db`. Invent a signature. Call this a coin. Call this a seal. Call this a payment Wallet. Call print quantum-green.

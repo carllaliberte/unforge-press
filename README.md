@@ -2,8 +2,11 @@
 
 The proof should fit in a pocket.
 
+Carte de poche: A5 HTML to share or print. Not a payment Wallet. Not a seal. Not a receipt.
+
 ```bash
 python3 press.py examples/bienvenue.txt.unforge.json
+python3 press.py examples/bienvenue.txt.unforge.json -o /tmp/poche.html
 ```
 
 `--human` prints `IMPRIMÉ` / `REFUS`. That is not a match verdict. Open `examples/bienvenue.txt.press.html` and print A5.
@@ -45,8 +48,9 @@ Itinerary of stamps: [unforge-trail](https://github.com/carllaliberte/unforge-tr
 
 Agents: `python3 press.py --schema` · `from press import imprimer` · [INTEROP.md](INTEROP.md).
 
-Press is a printer, not a seal. Apache-2.0 does not license QUANTUM.
-No node. No cloud. No coin.
+Press is a printer, not a seal. The HTML is a carte de poche, not a payment Wallet.
+Apache-2.0 does not license QUANTUM.
+No node. No cloud. No coin. No App Store.
 Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different rail.
 Brand UNFORGE reserved. Code: Apache-2.0. See [LICENSE](LICENSE), [NOTICE](NOTICE), [COPYRIGHT.md](COPYRIGHT.md).
 The private QUANTUM node is not licensed here.
