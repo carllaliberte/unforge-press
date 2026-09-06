@@ -13,7 +13,7 @@ python3 press.py examples/bienvenue.txt.unforge.json -o /tmp/poche.html
 
 v1 = bandeau legacy (« v1 n'inclut pas objet — resseller v2 »). v2 = normal. Demo card here is v1.
 
-Or name the file. Press looks for `FILE.unforge.json` beside it:
+Or name the file. Press looks for `FILE.unforge.json` beside it and recomputes sha256 from those bytes (jalon 1):
 
 ```bash
 python3 press.py examples/bienvenue.txt
@@ -41,6 +41,7 @@ python3 press.py examples/bienvenue.txt.unforge.json --ancrage examples/garantie
 Machine record on stdout (`press.v0`).
 
 Press prints ids. It does not open the signature.
+Companion file → real sha256 verify (jalon 1). No companion → card sha256 field, not recomputed.
 Unforge ne signe pas.
 Unforge does not sign.
 Verify the file with [unforge-check](https://github.com/carllaliberte/unforge-check). Check’s `VERT` means the file matches the card — not a quantum claim.

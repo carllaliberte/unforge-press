@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """UNFORGE Press — printable A5 carte de poche from a .unforge.json.
 
-Prints ids. Does not open the signature. Does not verify the file.
+Prints ids. Does not open the signature.
+Companion file: sha256 from bytes (jalon 1). No companion: card field.
 Share or print. Not a payment Wallet. Not a seal. Not a receipt.
 No node. No cloud. No coin.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -128,6 +130,12 @@ def phrase_press(rec: dict) -> str:
         return "ANCRAGE: date illisible."
     if err == "ancrage perime":
         return "ANCRAGE périmé — à re-mesurer, pas faux."
+    if err == "fichier introuvable":
+        return "fichier introuvable."
+    if err == "sha256":
+        return "objet.sha256 ne correspond pas au fichier."
+    if err == "octets":
+        return "objet.octets ne correspond pas au fichier."
     if rec.get("ok") and rec.get("ancrage") and rec.get("mesure"):
         if rec.get("legacy"):
             return "ANCRAGE tient. MESURE consommée. v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
@@ -245,6 +253,43 @@ def verifier_ancrage(path: Path, today: date | None = None) -> dict:
     }
 
 
+def verifier_objet(paquet: dict, fichier: Path) -> dict:
+    """Read file bytes. Compare sha256 (and octets if present) to objet.
+
+    Does not sign. Does not open the signature. Does not recompute empreinte.
+    """
+    if not fichier.is_file():
+        return habiller({"ok": False, "erreur": "fichier introuvable", "attendu": str(fichier)})
+    data = fichier.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    objet = paquet.get("objet") or {}
+    attendu = str(objet.get("sha256") or "").strip().lower()
+    if not attendu or digest != attendu:
+        return habiller(
+            {
+                "ok": False,
+                "erreur": "sha256",
+                "attendu": attendu or None,
+                "obtenu": digest,
+            }
+        )
+    if objet.get("octets") is not None:
+        try:
+            n = int(objet["octets"])
+        except (TypeError, ValueError):
+            return habiller({"ok": False, "erreur": "octets", "attendu": objet.get("octets")})
+        if n != len(data):
+            return habiller(
+                {
+                    "ok": False,
+                    "erreur": "octets",
+                    "attendu": n,
+                    "obtenu": len(data),
+                }
+            )
+    return {"ok": True, "sha256": digest, "octets": len(data)}
+
+
 def feuille(paquet: dict) -> dict:
     """Ids from a card. Does not open the signature. Does not hash a file."""
     if paquet.get("format") == TRAIL_FORMAT:
@@ -351,9 +396,14 @@ def imprimer(
     mesure: Path | None = None,
     ancrage: Path | None = None,
     *,
+    fichier: Path | None = None,
     today: date | None = None,
 ) -> dict:
     """Read a card, write A5 carte de poche HTML, return the press.v0 record. Never signs.
+
+    If ``fichier`` is set, recompute sha256 from those bytes and compare to
+    objet.sha256 (and octets if present). Mismatch refuses — no HTML.
+    No companion file: card sha256 is printed, not recomputed.
 
     If ``mesure`` is set, spend one MESURE-v0 reading (kit presse / porte 8).
     Consulting consumes. Press does not open a measure. It does not fork one.
@@ -366,6 +416,10 @@ def imprimer(
     rec = feuille(paquet)
     if not rec.get("ok"):
         return rec
+    if fichier is not None:
+        checked = verifier_objet(paquet, fichier)
+        if checked.get("ok") is False:
+            return checked
     if ancrage is not None:
         checked = verifier_ancrage(ancrage, today=today)
         if checked.get("ok") is False:
@@ -418,7 +472,9 @@ def main(argv: list[str] | None = None) -> int:
             "  python3 press.py document.pdf.unforge.json --mesure\n"
             "  python3 press.py document.pdf.unforge.json --ancrage examples/billet.ancrage.json\n"
             "\n"
-            "If a file is given, Press looks for FILE.unforge.json beside it.\n"
+            "If a file is given, Press looks for FILE.unforge.json beside it\n"
+            "and recomputes sha256 from that file (jalon 1). Mismatch refuses.\n"
+            "Or pass the card plus --fichier FILE. No companion: card field.\n"
             "Kit presse (porte 8): --mesure spends one MESURE-v0 reading\n"
             "(sibling FILE.mesure.json, or a path). Consulting consumes.\n"
             "Re-press (portes 3+7): --ancrage verifies ANCRAGE-v0 (sibling\n"
@@ -437,6 +493,10 @@ def main(argv: list[str] | None = None) -> int:
         "preuve",
         nargs="?",
         help="card .unforge.json, or a file whose card sits beside it",
+    )
+    p.add_argument(
+        "--fichier",
+        help="companion file: sha256 from bytes vs objet.sha256 (jalon 1). Mismatch refuses.",
     )
     p.add_argument(
         "-o",
@@ -486,11 +546,20 @@ def main(argv: list[str] | None = None) -> int:
         dest = Path(args.out) if args.out else None
         mesure = None
         ancrage = None
+        fichier = Path(args.fichier) if args.fichier else None
+        if fichier is None:
+            brut = Path(args.preuve)
+            if (
+                not brut.name.endswith(".unforge.json")
+                and not brut.name.endswith(".unforge-trail.json")
+                and brut.is_file()
+            ):
+                fichier = brut
         if args.mesure is not None:
             mesure = Path(args.mesure) if args.mesure else voisin_mesure(preuve)
         if args.ancrage is not None:
             ancrage = Path(args.ancrage) if args.ancrage else voisin_ancrage(preuve)
-        rec = imprimer(preuve, dest, mesure, ancrage)
+        rec = imprimer(preuve, dest, mesure, ancrage, fichier=fichier)
     except FileNotFoundError:
         attendu = str(voisin_carte(Path(args.preuve)))
         rec = habiller({"ok": False, "erreur": "preuve introuvable", "attendu": attendu})

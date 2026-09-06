@@ -2,13 +2,14 @@
 
 Other agents and tools print a card with a local process. No node. No cloud. No coin. Nothing here signs.
 
-Press prints ids. It does not open the signature. It does not verify a file.
+Press prints ids. It does not open the signature. Companion file → real sha256 verify (jalon 1). No companion → card field, not recomputed.
 
 ## Command
 
 ```bash
 python3 press.py FILE.unforge.json
 python3 press.py FILE
+python3 press.py FILE.unforge.json --fichier FILE
 python3 press.py FILE.unforge.json --mesure
 python3 press.py FILE.unforge.json --mesure carte.mesure.json
 python3 press.py FILE.unforge.json --ancrage
@@ -31,6 +32,8 @@ rec = imprimer(Path("doc.pdf.unforge.json"))
 assert rec["ok"] is True          # card is UNFORGE-PREUVE-v1 or v2 and HTML was written
 assert rec["geste"] == "press"
 schema()                          # press.v0
+# companion file: sha256 from bytes (jalon 1) — mismatch refuses, no HTML
+rec = imprimer(Path("doc.pdf.unforge.json"), fichier=Path("doc.pdf"))
 # kit presse: copy the MESURE card first — consulter writes it
 rec = imprimer(Path("doc.pdf.unforge.json"), mesure=Path("doc.pdf.mesure.json"))
 assert rec["mesure"]["consomme"] is True
@@ -39,7 +42,7 @@ rec = imprimer(Path("doc.pdf.unforge.json"), ancrage=Path("examples/billet.ancra
 assert rec["ancrage"]["verifie"] is True
 ```
 
-`feuille`, `html_carte`, `imprimer`, `consulter_mesure`, `verifier_ancrage` stay importable.
+`feuille`, `html_carte`, `imprimer`, `consulter_mesure`, `verifier_ancrage`, `verifier_objet` stay importable.
 
 `ok: true` is **not** a match. Match is [unforge-check](https://github.com/carllaliberte/unforge-check): `ok: true` there, `VERT` in `--human`, means the file still matches the card. Not a quantum claim.
 
@@ -50,7 +53,7 @@ A trail is not a card. [unforge-trail](https://github.com/carllaliberte/unforge-
 | Code | Meaning |
 |---|---|
 | 0 | printed (`ok: true`, HTML written) |
-| 1 | refuse (not `UNFORGE-PREUVE-v1`/`v2`, itinerary, spent MESURE, or expired ANCRAGE) |
+| 1 | refuse (not `UNFORGE-PREUVE-v1`/`v2`, itinerary, companion sha256/octets mismatch, spent MESURE, or expired ANCRAGE) |
 | 2 | unreadable (missing path, bad JSON) |
 
 ## Record
@@ -59,7 +62,7 @@ JSON on stdout. Shape: `schema/press.v0.json`. Stable keys: `ok`, `geste`, `id`,
 
 The HTML embeds the same record in `<script type="application/json" id="unforge-press">`.
 
-`sha256` and `empreinte` are copied from the card. They are not recomputed.
+`empreinte` is copied from the card. It is not recomputed. Companion file → `sha256` from real bytes vs `objet.sha256` (jalon 1). No companion → card field, not recomputed.
 
 Kit presse (porte 8): `--mesure` consults a `MESURE-v0` card ([mesure-protocol](https://github.com/carllaliberte/mesure-protocol)). One reading is spent on the card on disk. The press record may then carry `mesure` (`consomme: true`, remaining `lectures`, `detruit`). That key is press.v0, not written back onto the MESURE card. Consulting without a remaining reading is refused — no HTML. Default print does not consult. Do not fork a measure. Not a seal. Not a receipt.
 
