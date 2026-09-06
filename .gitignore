@@ -1,4 +1,5 @@
 *.press.html
+*.mesure.json.lock
 __pycache__/
 *.py[cod]
 .pytest_cache/

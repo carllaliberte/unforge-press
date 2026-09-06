@@ -12,10 +12,16 @@ import json
 import sys
 from pathlib import Path
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # type: ignore
+
 FORMAT_V1 = "UNFORGE-PREUVE-v1"
 FORMAT_V2 = "UNFORGE-PREUVE-v2"
 FORMATS = {FORMAT_V1, FORMAT_V2}
 TRAIL_FORMAT = "UNFORGE-TRAIL-v1"
+MESURE_FORMAT = "MESURE-v0"
 SCHEMA_ID = "press.v0"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "press.v0.json"
 
@@ -64,6 +70,16 @@ def dest_defaut(preuve: Path) -> Path:
     return preuve.with_name(name + ".press.html")
 
 
+def voisin_mesure(preuve: Path) -> Path:
+    """MESURE-v0 card that sits beside a proof: FILE.mesure.json."""
+    name = preuve.name
+    if name.endswith(".unforge.json"):
+        return preuve.with_name(name[: -len(".unforge.json")] + ".mesure.json")
+    if name.endswith(".mesure.json"):
+        return preuve
+    return Path(str(preuve) + ".mesure.json")
+
+
 def blocs_hex(valeur: str) -> str:
     hexa = "".join(c for c in (valeur or "") if c.isalnum())[:64]
     return " ".join(hexa[i : i + 8] for i in range(0, len(hexa), 8))
@@ -83,6 +99,16 @@ def phrase_press(rec: dict) -> str:
         return "preuve introuvable."
     if err == "json":
         return "JSON illisible."
+    if err == "mesure introuvable":
+        return "MESURE introuvable. Kit presse: FILE.mesure.json."
+    if err == "mesure":
+        return "pas MESURE-v0."
+    if err == "mesure lectures":
+        return "MESURE déjà détruite ou plus de lecture."
+    if rec.get("ok") and rec.get("mesure"):
+        if rec.get("legacy"):
+            return "MESURE consommée. v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
+        return "MESURE consommée. Press n'ouvre pas la signature. Check le fait."
     if rec.get("ok") and rec.get("legacy"):
         return "v1 n'inclut pas objet — resseller v2. Press n'ouvre pas la signature."
     if rec.get("ok"):
@@ -99,6 +125,59 @@ def habiller(rec: dict) -> dict:
     rec.setdefault("schema", SCHEMA_ID)
     rec["phrase"] = phrase_press(rec)
     return rec
+
+
+def _mesure_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    fh = open(lock_path, "a+", encoding="utf-8")
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+    return fh
+
+
+def _mesure_unlock(fh) -> None:
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    fh.close()
+
+
+def consulter_mesure(path: Path) -> dict:
+    """Spend one MESURE-v0 reading. Does not sign. Does not fork.
+
+    Interop with mesure-protocol: consulter consomme. The card on disk
+    stays MESURE-v0 (no extra keys). Press records the spend; it is not
+    a seal and not a receipt.
+    """
+    fh = _mesure_lock(path)
+    try:
+        if not path.is_file():
+            return habiller({"ok": False, "erreur": "mesure introuvable", "attendu": str(path)})
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return habiller({"ok": False, "erreur": "json"})
+        if data.get("format") != MESURE_FORMAT:
+            return habiller({"ok": False, "erreur": "mesure"})
+        if data.get("detruit") or int(data.get("lectures", 0)) < 1:
+            return habiller({"ok": False, "erreur": "mesure lectures"})
+        data["lectures"] = int(data["lectures"]) - 1
+        if data["lectures"] == 0:
+            data["detruit"] = True
+        allowed = ("format", "objet", "lectures", "sha256", "sha_sur", "detruit")
+        carte = {k: data[k] for k in allowed if k in data}
+        path.write_text(json.dumps(carte, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return {
+            "format": carte.get("format"),
+            "objet": carte.get("objet"),
+            "lectures": carte.get("lectures"),
+            "sha256": carte.get("sha256"),
+            "sha_sur": carte.get("sha_sur"),
+            "detruit": bool(carte.get("detruit")),
+            "consomme": True,
+        }
+    finally:
+        _mesure_unlock(fh)
 
 
 def feuille(paquet: dict) -> dict:
@@ -145,6 +224,10 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
         ("sha256", rec.get("sha256")),
         ("empreinte", rec.get("empreinte")),
     ]
+    mesure = rec.get("mesure") or {}
+    if mesure.get("consomme"):
+        etat = "detruit" if mesure.get("detruit") else f"lectures={mesure.get('lectures')}"
+        rows.append(("mesure", f"MESURE-v0 consommée · {etat}"))
     meta = "".join(
         f"<div><b>{html.escape(k)}</b> {html.escape(str(v if v not in (None, '') else '—'))}</div>"
         for k, v in rows
@@ -170,17 +253,32 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
         "<footer class='pied'>"
         "<p>Pocket card. Not a seal.</p>"
         "<p>Verify the file with unforge-check. Stamps: unforge-trail.</p>"
-        "<p>The node stays yours. The attestation leaves.</p>"
+        + (
+            "<p>MESURE consommée. Consulter consomme. Not a receipt.</p>"
+            if mesure.get("consomme")
+            else ""
+        )
+        + "<p>The node stays yours. The attestation leaves.</p>"
         "</footer></article></body></html>"
     )
 
 
-def imprimer(preuve: Path, dest: Path | None = None) -> dict:
-    """Read a card, write A5 HTML, return the press.v0 record. Never signs."""
+def imprimer(preuve: Path, dest: Path | None = None, mesure: Path | None = None) -> dict:
+    """Read a card, write A5 HTML, return the press.v0 record. Never signs.
+
+    If ``mesure`` is set, spend one MESURE-v0 reading (kit presse / porte 8).
+    Consulting consumes. Press does not open a measure. It does not fork one.
+    """
     paquet = json.loads(preuve.read_text(encoding="utf-8"))
     rec = feuille(paquet)
     if not rec.get("ok"):
         return rec
+    if mesure is not None:
+        spent = consulter_mesure(mesure)
+        if spent.get("ok") is False:
+            return spent
+        rec["mesure"] = spent
+        rec["phrase"] = phrase_press(rec)
     cible = dest if dest is not None else dest_defaut(preuve)
     cible.write_text(html_carte(paquet, rec), encoding="utf-8")
     rec["html"] = str(cible)
@@ -213,8 +311,11 @@ def main(argv: list[str] | None = None) -> int:
             "  python3 press.py document.pdf\n"
             "  python3 press.py document.pdf.unforge.json -o /tmp/card.html\n"
             "  python3 press.py document.pdf.unforge.json --human\n"
+            "  python3 press.py document.pdf.unforge.json --mesure\n"
             "\n"
             "If a file is given, Press looks for FILE.unforge.json beside it.\n"
+            "Kit presse (porte 8): --mesure spends one MESURE-v0 reading\n"
+            "(sibling FILE.mesure.json, or a path). Consulting consumes.\n"
             "Writes A5 HTML. Machine record (press.v0) on stdout.\n"
             "Exit 0 = printed. Exit 1 = refuse. Exit 2 = unreadable.\n"
             "ok: true means the card is UNFORGE-PREUVE-v1 or v2 and HTML was written.\n"
@@ -229,6 +330,13 @@ def main(argv: list[str] | None = None) -> int:
         help="card .unforge.json, or a file whose card sits beside it",
     )
     p.add_argument("-o", "--out", help="destination HTML (default: FILE.press.html)")
+    p.add_argument(
+        "--mesure",
+        nargs="?",
+        const="",
+        default=None,
+        help="consume a MESURE-v0 reading (sibling FILE.mesure.json, or a path). Not a receipt.",
+    )
     p.add_argument("--schema", action="store_true", help="print press.v0 JSON Schema and exit")
     sortie = p.add_mutually_exclusive_group()
     sortie.add_argument("--json", action="store_true", help="machine record on stdout (default)")
@@ -253,7 +361,10 @@ def main(argv: list[str] | None = None) -> int:
             _émettre(rec, args.human)
             return 2
         dest = Path(args.out) if args.out else None
-        rec = imprimer(preuve, dest)
+        mesure = None
+        if args.mesure is not None:
+            mesure = Path(args.mesure) if args.mesure else voisin_mesure(preuve)
+        rec = imprimer(preuve, dest, mesure)
     except FileNotFoundError:
         attendu = str(voisin_carte(Path(args.preuve)))
         rec = habiller({"ok": False, "erreur": "preuve introuvable", "attendu": attendu})

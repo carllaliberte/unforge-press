@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from press import (  # noqa: E402
     SCHEMA_ID,
     blocs_hex,
+    consulter_mesure,
     dest_defaut,
     feuille,
     habiller,
@@ -25,9 +26,11 @@ from press import (  # noqa: E402
     resoudre,
     schema,
     voisin_carte,
+    voisin_mesure,
 )
 
 CARTE = ROOT / "examples" / "bienvenue.txt.unforge.json"
+MESURE = ROOT / "examples" / "bienvenue.txt.mesure.json"
 FICHIER = ROOT / "examples" / "bienvenue.txt"
 PY = sys.executable
 
@@ -305,6 +308,7 @@ class CLI(unittest.TestCase):
     def test_une_ligne_readme_et_imprime(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("python3 press.py examples/bienvenue.txt.unforge.json", readme)
+        self.assertIn("--mesure", readme)
         self.assertIn("IMPRIMÉ", readme)
         self.assertIn("REFUS", readme)
         with tempfile.TemporaryDirectory() as tmp:
@@ -331,6 +335,130 @@ class Readme(unittest.TestCase):
         self.assertNotRegex(text, r"(?i)invent(ed|e|er)?\s+(a\s+)?(valid\s+)?signature")
 
 
+class Mesure(unittest.TestCase):
+    def _copie(self, tmp: str) -> Path:
+        dest = Path(tmp) / "bienvenue.txt.mesure.json"
+        dest.write_text(MESURE.read_text(encoding="utf-8"), encoding="utf-8")
+        return dest
+
+    def test_voisin(self):
+        self.assertEqual(voisin_mesure(CARTE), MESURE)
+        self.assertEqual(voisin_mesure(MESURE), MESURE)
+
+    def test_consulter_consomme(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = self._copie(tmp)
+            dest = Path(tmp) / "kit.html"
+            rec = imprimer(CARTE, dest, carte)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(rec["mesure"]["consomme"])
+            self.assertEqual(rec["mesure"]["lectures"], 0)
+            self.assertTrue(rec["mesure"]["detruit"])
+            self.assertEqual(
+                rec["mesure"]["sha256"],
+                "e8fe730c49dc859358e3b94376fb0a5f0916aca21b18457eb3d8391c4ebc0838",
+            )
+            self.assertIn("MESURE consommée", rec["phrase"])
+            self.assertNotIn("VERT", rec["phrase"])
+            page = dest.read_text(encoding="utf-8")
+            self.assertIn("MESURE consommée", page)
+            self.assertIn("Not a receipt", page)
+            self.assertIn("Not a seal", page)
+            self.assertNotIn("VERT", page)
+            payload = page.split("id='unforge-press'>", 1)[1].split("</script>", 1)[0]
+            embedded = json.loads(payload)
+            self.assertTrue(embedded["mesure"]["consomme"])
+            self.assertNotIn("signature", embedded)
+            disk = json.loads(carte.read_text(encoding="utf-8"))
+            self.assertEqual(disk["lectures"], 0)
+            self.assertTrue(disk["detruit"])
+            self.assertNotIn("consomme", disk)
+            self.assertEqual(disk["format"], "MESURE-v0")
+            again = consulter_mesure(carte)
+            self.assertFalse(again["ok"])
+            self.assertEqual(again["erreur"], "mesure lectures")
+
+    def test_fixture_reste_ouverte(self):
+        raw = json.loads(MESURE.read_text(encoding="utf-8"))
+        self.assertEqual(raw["format"], "MESURE-v0")
+        self.assertEqual(raw["lectures"], 1)
+        self.assertFalse(raw["detruit"])
+        self.assertEqual(raw["sha_sur"], "fichier")
+        self.assertEqual(FICHIER.stat().st_size, 92)
+        self.assertEqual(raw["sha256"], _paquet()["objet"]["sha256"])
+
+    def test_sans_mesure_n_invente_pas(self):
+        rec = feuille(_paquet())
+        self.assertNotIn("mesure", rec)
+        page = html_carte(_paquet())
+        self.assertNotIn("MESURE consommée", page)
+
+    def test_refuse_detruit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "x.mesure.json"
+            carte.write_text(
+                json.dumps(
+                    {
+                        "format": "MESURE-v0",
+                        "objet": "bienvenue.txt",
+                        "lectures": 0,
+                        "sha256": "e8fe730c49dc859358e3b94376fb0a5f0916aca21b18457eb3d8391c4ebc0838",
+                        "sha_sur": "fichier",
+                        "detruit": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            dest = Path(tmp) / "kit.html"
+            rec = imprimer(CARTE, dest, carte)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "mesure lectures")
+            self.assertFalse(dest.exists())
+
+    def test_refuse_mauvais_format(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "x.mesure.json"
+            carte.write_text(json.dumps({"format": "NON", "lectures": 1}), encoding="utf-8")
+            rec = imprimer(CARTE, Path(tmp) / "kit.html", carte)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "mesure")
+
+    def test_cli_mesure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = self._copie(tmp)
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--mesure", str(carte)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(rec["mesure"]["consomme"])
+            self.assertIn("MESURE consommée", rec["phrase"])
+            self.assertNotIn("VERT", r.stdout)
+
+    def test_cli_mesure_voisin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            card = Path(tmp) / "bienvenue.txt.unforge.json"
+            card.write_text(CARTE.read_text(encoding="utf-8"), encoding="utf-8")
+            (Path(tmp) / "bienvenue.txt.mesure.json").write_text(
+                MESURE.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            dest = Path(tmp) / "out.html"
+            r = _run([str(card), "-o", str(dest), "--mesure"])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["mesure"]["consomme"])
+
+    def test_cli_mesure_absente(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest), "--mesure", str(Path(tmp) / "nope.mesure.json")])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "mesure introuvable")
+            self.assertFalse(dest.exists())
+
+
 class Juge(unittest.TestCase):
     def test_n_est_pas_le_contrat_juge(self):
         text = (ROOT / "JUGE.md").read_text(encoding="utf-8")
@@ -346,6 +474,7 @@ class Juge(unittest.TestCase):
         self.assertIn("Unforge ne signe pas", text)
         self.assertNotIn("ne signe pas /", text)
         self.assertIn("PREVIEW ≠ quittance", text)
+        self.assertIn("MESURE consommée ≠ quittance", text)
 
 
 class InteropCarte(unittest.TestCase):
