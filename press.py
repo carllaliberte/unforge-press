@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""UNFORGE Press — printable A5 pocket card from a .unforge.json.
+"""UNFORGE Press — printable A5 carte de poche from a .unforge.json.
 
 Prints ids. Does not open the signature. Does not verify the file.
-Not a seal. No node. No cloud. No coin.
+Share or print. Not a payment Wallet. Not a seal. Not a receipt.
+No node. No cloud. No coin.
 """
 from __future__ import annotations
 
@@ -273,7 +274,10 @@ def feuille(paquet: dict) -> dict:
 
 
 def html_carte(paquet: dict, rec: dict | None = None) -> str:
-    """A5 pocket HTML. Escapes every field. Does not verify."""
+    """A5 carte de poche HTML. Escapes every field. Does not verify.
+
+    Share or print. Not a payment Wallet. Not a seal. Not a receipt.
+    """
     rec = rec if rec is not None else feuille(paquet)
     objet = paquet.get("objet") or {}
     nom = rec.get("objet") or rec.get("id") or "preuve"
@@ -323,7 +327,8 @@ def html_carte(paquet: dict, rec: dict | None = None) -> str:
         f"<div class='hex'>{html.escape(blocs_hex(str(sha)))}</div>"
         f"<div class='meta'>{meta}</div>"
         "<footer class='pied'>"
-        "<p>Pocket card. Not a seal.</p>"
+        "<p>Carte de poche. Share or print.</p>"
+        "<p>Not a payment Wallet. Not a seal. Not a receipt.</p>"
         "<p>Verify the file with unforge-check. Stamps: unforge-trail.</p>"
         + (
             "<p>MESURE consommée. Consulter consomme. Not a receipt.</p>"
@@ -348,7 +353,7 @@ def imprimer(
     *,
     today: date | None = None,
 ) -> dict:
-    """Read a card, write A5 HTML, return the press.v0 record. Never signs.
+    """Read a card, write A5 carte de poche HTML, return the press.v0 record. Never signs.
 
     If ``mesure`` is set, spend one MESURE-v0 reading (kit presse / porte 8).
     Consulting consumes. Press does not open a measure. It does not fork one.
@@ -395,7 +400,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="press.py",
         description=(
-            "UNFORGE Press — print a pocket card from a .unforge.json. "
+            "UNFORGE Press — print a carte de poche (A5) from a .unforge.json. "
+            "Share or print. Not a payment Wallet. Not a seal. Not a receipt. "
             "No node. No cloud. No coin. Does not open the signature."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -414,7 +420,8 @@ def main(argv: list[str] | None = None) -> int:
             "Re-press (portes 3+7): --ancrage verifies ANCRAGE-v0 (sibling\n"
             "FILE.ancrage.json, or a path). Read-only. Expired = re-measure,\n"
             "not fake. Press does not write a new date.\n"
-            "Writes A5 HTML. Machine record (press.v0) on stdout.\n"
+            "Writes A5 carte de poche HTML. Not a payment Wallet.\n"
+            "Machine record (press.v0) on stdout.\n"
             "Exit 0 = printed. Exit 1 = refuse. Exit 2 = unreadable.\n"
             "ok: true means the card is UNFORGE-PREUVE-v1 or v2 and HTML was written.\n"
             "v1 is printed with a banner: resseller v2. It is not a file match.\n"
@@ -427,7 +434,11 @@ def main(argv: list[str] | None = None) -> int:
         nargs="?",
         help="card .unforge.json, or a file whose card sits beside it",
     )
-    p.add_argument("-o", "--out", help="destination HTML (default: FILE.press.html)")
+    p.add_argument(
+        "-o",
+        "--out",
+        help="destination HTML (default: FILE.press.html). Carte de poche, not a Wallet.",
+    )
     p.add_argument(
         "--mesure",
         nargs="?",

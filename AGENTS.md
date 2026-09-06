@@ -4,7 +4,7 @@ You are looking at the public printer, not the node.
 
 ## Do
 
-- Print: `python press.py FILE.unforge.json` or `python press.py FILE` (looks for `FILE.unforge.json`)
+- Print: `python press.py FILE.unforge.json` or `python press.py FILE` (looks for `FILE.unforge.json`). A5 carte de poche. Share or print. Not a payment Wallet.
 - Kit presse (porte 8): `python press.py FILE --mesure` consults sibling `FILE.mesure.json` (or a path). Copy the fixture first. Consulting spends a reading. Do not fork. Do not vendor mesure-protocol.
 - Re-press (portes 3+7): `python press.py FILE --ancrage` verifies sibling `FILE.ancrage.json` (or a path: `examples/billet.ancrage.json`, `examples/garantie.ancrage.json`). Read-only. Expired date = re-measure, not fake. Do not reculer. Do not vendor ancrage-protocol.
 - Interop (no server): `python press.py --schema` · `from press import imprimer` · INTEROP.md
@@ -15,7 +15,8 @@ You are looking at the public printer, not the node.
 
 ## Do not
 
-- Call this a quantum computer, a coin, a cloud, or a seal
+- Call this a quantum computer, a coin, a cloud, a seal, or a payment Wallet
+- Provision Apple Wallet, Google Wallet, App Store, or a payment pass
 - Gloss print as quantum-green. Check’s `VERT` is a match bit.
 - Open or request `quantum.db` / private keys
 - Issue proofs here (issuing is private QUANTUM: `carllaliberte/unforge`)
@@ -26,7 +27,7 @@ You are looking at the public printer, not the node.
 
 - Proof: `UNFORGE-PREUVE-v2` (v1 printed as legacy) — unforge-check SPEC.md
 - Trail: `UNFORGE-TRAIL-v1` — repo unforge-trail (refused here)
-- Press: HTML A5 + `press.v0` record — this repo
+- Press: HTML A5 carte de poche + `press.v0` record — this repo. Not a Wallet.
 
 ## Brand
 
