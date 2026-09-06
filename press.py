@@ -379,10 +379,14 @@ def imprimer(
         rec["mesure"] = spent
         rec["phrase"] = phrase_press(rec)
     cible = dest if dest is not None else dest_defaut(preuve)
-    cible.write_text(html_carte(paquet, rec), encoding="utf-8")
-    rec["html"] = str(cible)
-    rec["phrase"] = phrase_press(rec)
-    return rec
+    fh = _mesure_lock(cible)
+    try:
+        cible.write_text(html_carte(paquet, rec), encoding="utf-8")
+        rec["html"] = str(cible)
+        rec["phrase"] = phrase_press(rec)
+        return rec
+    finally:
+        _mesure_unlock(fh)
 
 
 def schema() -> dict:

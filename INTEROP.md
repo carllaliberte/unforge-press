@@ -18,6 +18,7 @@ python3 press.py --schema
 
 `FILE` alone looks for `FILE.unforge.json` beside it.
 Writes `FILE.press.html` (A5 carte de poche). Share or print. Not a payment Wallet.
+Concurrent HTML carte write uses `fcntl.flock` (jalon 1).
 Machine record on stdout.
 
 ## Python
