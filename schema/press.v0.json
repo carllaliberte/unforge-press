@@ -34,6 +34,19 @@
     "phrase": { "type": "string" },
     "erreur": { "type": "string" },
     "attendu": { "type": "string" },
-    "detail": { "type": "string" }
+    "detail": { "type": "string" },
+    "mesure": {
+      "type": "object",
+      "description": "MESURE-v0 satellite after consulter (kit presse / porte 8). Consulting spends a reading. Copied ids, not recomputed. Not a seal. Not a receipt. Rail: https://github.com/carllaliberte/mesure-protocol",
+      "properties": {
+        "format": { "const": "MESURE-v0" },
+        "objet": { "type": ["string", "null"] },
+        "lectures": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": ["string", "null"] },
+        "sha_sur": { "enum": ["fichier", "payload"] },
+        "detruit": { "type": "boolean" },
+        "consomme": { "const": true, "description": "This print spent one reading. Not written onto the MESURE card." }
+      }
+    }
   }
 }

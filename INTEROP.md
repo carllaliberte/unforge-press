@@ -9,6 +9,8 @@ Press prints ids. It does not open the signature. It does not verify a file.
 ```bash
 python3 press.py FILE.unforge.json
 python3 press.py FILE
+python3 press.py FILE.unforge.json --mesure
+python3 press.py FILE.unforge.json --mesure carte.mesure.json
 python3 press.py --schema
 ```
 
@@ -25,9 +27,12 @@ rec = imprimer(Path("doc.pdf.unforge.json"))
 assert rec["ok"] is True          # card is UNFORGE-PREUVE-v1 or v2 and HTML was written
 assert rec["geste"] == "press"
 schema()                          # press.v0
+# kit presse: copy the MESURE card first — consulter writes it
+rec = imprimer(Path("doc.pdf.unforge.json"), mesure=Path("doc.pdf.mesure.json"))
+assert rec["mesure"]["consomme"] is True
 ```
 
-`feuille`, `html_carte`, `imprimer` stay importable.
+`feuille`, `html_carte`, `imprimer`, `consulter_mesure` stay importable.
 
 `ok: true` is **not** a match. Match is [unforge-check](https://github.com/carllaliberte/unforge-check): `ok: true` there, `VERT` in `--human`, means the file still matches the card. Not a quantum claim.
 
@@ -48,6 +53,8 @@ JSON on stdout. Shape: `schema/press.v0.json`. Stable keys: `ok`, `geste`, `id`,
 The HTML embeds the same record in `<script type="application/json" id="unforge-press">`.
 
 `sha256` and `empreinte` are copied from the card. They are not recomputed.
+
+Kit presse (porte 8): `--mesure` consults a `MESURE-v0` card ([mesure-protocol](https://github.com/carllaliberte/mesure-protocol)). One reading is spent on the card on disk. The press record may then carry `mesure` (`consomme: true`, remaining `lectures`, `detruit`). That key is press.v0, not written back onto the MESURE card. Consulting without a remaining reading is refused — no HTML. Default print does not consult. Do not fork a measure. Not a seal. Not a receipt.
 
 ## Do not
 

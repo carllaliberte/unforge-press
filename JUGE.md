@@ -6,4 +6,5 @@ Unforge ne signe pas.
 Unforge does not sign.
 Schema: `press.v0` (`python3 press.py --schema`). Famille juge.v0 is a different rail.
 Badge PREVIEW ≠ quittance.
+MESURE consommée ≠ quittance.
 Jugement = Carl.

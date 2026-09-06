@@ -20,3 +20,11 @@ jobs:
           grep -q "QT-PR-DEMO0001" /tmp/card.html
           grep -q "unforge-press" /tmp/card.html
           if grep -q "VERT" /tmp/card.html; then echo "print must not say VERT"; exit 1; fi
+      - name: kit-presse-mesure
+        run: |
+          cp examples/bienvenue.txt.mesure.json /tmp/bienvenue.txt.mesure.json
+          python3 press.py examples/bienvenue.txt.unforge.json --mesure /tmp/bienvenue.txt.mesure.json -o /tmp/kit.html
+          grep -q "MESURE consommée" /tmp/kit.html
+          grep -q '"consomme": true' /tmp/kit.html
+          if grep -q "VERT" /tmp/kit.html; then echo "print must not say VERT"; exit 1; fi
+          python3 -c "import json; c=json.load(open('/tmp/bienvenue.txt.mesure.json')); assert c['lectures']==0 and c['detruit'] is True and 'consomme' not in c"

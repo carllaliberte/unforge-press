@@ -17,6 +17,15 @@ python3 press.py examples/bienvenue.txt
 python3 press.py examples/bienvenue.txt.unforge.json --human
 ```
 
+Kit presse (porte 8) — copy the MESURE fixture, then consume one reading. Consulting spends. Not a receipt:
+
+```bash
+cp examples/bienvenue.txt.mesure.json /tmp/bienvenue.txt.mesure.json
+python3 press.py examples/bienvenue.txt.unforge.json --mesure /tmp/bienvenue.txt.mesure.json -o /tmp/kit.html
+```
+
+`--mesure` without a path looks for `FILE.mesure.json` beside the card. Default print does not touch MESURE.
+
 Machine record on stdout (`press.v0`).
 
 Press prints ids. It does not open the signature.
