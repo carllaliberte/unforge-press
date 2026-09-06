@@ -9,10 +9,12 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import press  # noqa: E402
 from press import (  # noqa: E402
     SCHEMA_ID,
     blocs_hex,
@@ -532,6 +534,60 @@ class Mesure(unittest.TestCase):
             self.assertFalse(rec["ok"])
             self.assertEqual(rec["erreur"], "mesure introuvable")
             self.assertFalse(dest.exists())
+
+
+class IntegriteFlock(unittest.TestCase):
+    """jalon 1: exclusive flock on consulter_mesure and HTML carte write."""
+
+    def test_consulter_mesure_flock_ex_puis_un(self):
+        if press.fcntl is None:
+            self.skipTest("fcntl absent — dégradation Windows")
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "bienvenue.txt.mesure.json"
+            carte.write_text(MESURE.read_text(encoding="utf-8"), encoding="utf-8")
+            with patch.object(press.fcntl, "flock") as mock_flock:
+                spent = consulter_mesure(carte)
+            self.assertTrue(spent.get("consomme"))
+            flags = [c.args[1] for c in mock_flock.call_args_list]
+            self.assertEqual(flags, [press.fcntl.LOCK_EX, press.fcntl.LOCK_UN])
+            lock_path = carte.with_suffix(carte.suffix + ".lock")
+            self.assertTrue(lock_path.is_file())
+
+    def test_html_write_flock_ex_puis_un(self):
+        if press.fcntl is None:
+            self.skipTest("fcntl absent — dégradation Windows")
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "carte.html"
+            with patch.object(press.fcntl, "flock") as mock_flock:
+                rec = imprimer(CARTE, dest)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(dest.is_file())
+            flags = [c.args[1] for c in mock_flock.call_args_list]
+            self.assertEqual(flags, [press.fcntl.LOCK_EX, press.fcntl.LOCK_UN])
+            lock_path = dest.with_suffix(dest.suffix + ".lock")
+            self.assertTrue(lock_path.is_file())
+
+    def test_imprimer_mesure_puis_html_ordre_unlock(self):
+        if press.fcntl is None:
+            self.skipTest("fcntl absent — dégradation Windows")
+        with tempfile.TemporaryDirectory() as tmp:
+            carte = Path(tmp) / "bienvenue.txt.mesure.json"
+            carte.write_text(MESURE.read_text(encoding="utf-8"), encoding="utf-8")
+            dest = Path(tmp) / "kit.html"
+            with patch.object(press.fcntl, "flock") as mock_flock:
+                rec = imprimer(CARTE, dest, carte)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(rec["mesure"]["consomme"])
+            flags = [c.args[1] for c in mock_flock.call_args_list]
+            self.assertEqual(
+                flags,
+                [
+                    press.fcntl.LOCK_EX,
+                    press.fcntl.LOCK_UN,
+                    press.fcntl.LOCK_EX,
+                    press.fcntl.LOCK_UN,
+                ],
+            )
 
 
 class Ancrage(unittest.TestCase):
