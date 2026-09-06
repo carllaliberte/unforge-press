@@ -6,7 +6,7 @@ Card format: `UNFORGE-PREUVE-v2` (v1 still prints, with a banner: v1 n'inclut pa
 
 Required keys on the card: `format`, `marque`, `id`, `card_id`, `card_public`, `token_id`, `empreinte`, `signature`, `fait`, `created_at`.
 
-Press copies ids onto paper. It does not recompute `empreinte`. It does not open `signature`. It does not hash the file.
+Press copies ids onto paper. It does not recompute `empreinte`. It does not open `signature`. Companion file → real sha256 verify (jalon 1). No companion → card field, not hashed.
 
 Kit presse (porte 8) may `--mesure` a sibling `MESURE-v0` card. Consulting spends a reading ([mesure-protocol](https://github.com/carllaliberte/mesure-protocol)). Press records the spend. It does not open a measure, fork one, or call the print a receipt.
 

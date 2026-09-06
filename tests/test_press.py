@@ -2,6 +2,7 @@
 """Public print tests. Never issue. Never invent a valid signature."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -27,6 +28,7 @@ from press import (  # noqa: E402
     resoudre,
     schema,
     verifier_ancrage,
+    verifier_objet,
     voisin_ancrage,
     voisin_carte,
     voisin_mesure,
@@ -701,6 +703,141 @@ class Ancrage(unittest.TestCase):
             rec = json.loads(r.stdout)
             self.assertFalse(rec["ok"])
             self.assertEqual(rec["erreur"], "ancrage introuvable")
+            self.assertFalse(dest.exists())
+
+
+class Fichier(unittest.TestCase):
+    SHA = "e8fe730c49dc859358e3b94376fb0a5f0916aca21b18457eb3d8391c4ebc0838"
+
+    def test_match_ok(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "ok.html"
+            rec = imprimer(CARTE, dest, fichier=FICHIER)
+            self.assertTrue(rec["ok"])
+            self.assertEqual(rec["sha256"], self.SHA)
+            self.assertTrue(dest.is_file())
+            page = dest.read_text(encoding="utf-8")
+            self.assertIn("e8fe730c", page)
+            self.assertNotIn("VERT", page)
+        checked = verifier_objet(_paquet(), FICHIER)
+        self.assertTrue(checked["ok"])
+        self.assertEqual(checked["sha256"], self.SHA)
+        self.assertEqual(checked["octets"], 92)
+
+    def test_mismatch_refuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "no.html"
+            mauvais = Path(tmp) / "mauvais.txt"
+            mauvais.write_bytes(b"pas le bon fichier\n")
+            rec = imprimer(CARTE, dest, fichier=mauvais)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "sha256")
+            self.assertIn("objet.sha256", rec["phrase"])
+            self.assertNotIn("VERT", rec["phrase"])
+            self.assertFalse(dest.exists())
+            self.assertEqual(rec["obtenu"], hashlib.sha256(b"pas le bon fichier\n").hexdigest())
+
+    def test_octets_refuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            card = Path(tmp) / "x.unforge.json"
+            p = _paquet()
+            p["objet"] = dict(p["objet"])
+            p["objet"]["octets"] = 1
+            card.write_text(json.dumps(p), encoding="utf-8")
+            dest = Path(tmp) / "no.html"
+            rec = imprimer(card, dest, fichier=FICHIER)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "octets")
+            self.assertIn("objet.octets", rec["phrase"])
+            self.assertFalse(dest.exists())
+
+    def test_sans_fichier_imprime_le_sha_carte(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "carte.html"
+            rec = imprimer(CARTE, dest)
+            self.assertTrue(rec["ok"])
+            self.assertEqual(rec["sha256"], self.SHA)
+            page = dest.read_text(encoding="utf-8")
+            self.assertIn("printed, not recomputed", page)
+            self.assertIn("e8fe730c", page)
+            self.assertTrue(dest.is_file())
+
+    def test_mismatch_n_ecrit_pas_apres_mesure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mesure = Path(tmp) / "bienvenue.txt.mesure.json"
+            mesure.write_text(MESURE.read_text(encoding="utf-8"), encoding="utf-8")
+            dest = Path(tmp) / "no.html"
+            mauvais = Path(tmp) / "mauvais.txt"
+            mauvais.write_bytes(b"x")
+            rec = imprimer(CARTE, dest, mesure, fichier=mauvais)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "sha256")
+            self.assertFalse(dest.exists())
+            disk = json.loads(mesure.read_text(encoding="utf-8"))
+            self.assertEqual(disk["lectures"], 1)
+            self.assertFalse(disk.get("detruit"))
+
+    def test_cli_voisin_match(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(FICHIER), "-o", str(dest)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ok"])
+            self.assertEqual(rec["sha256"], self.SHA)
+            self.assertTrue(dest.is_file())
+
+    def test_cli_mismatch_refuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            card = Path(tmp) / "orphelin.txt.unforge.json"
+            card.write_text(CARTE.read_text(encoding="utf-8"), encoding="utf-8")
+            mauvais = Path(tmp) / "orphelin.txt"
+            mauvais.write_bytes(b"autre contenu")
+            dest = Path(tmp) / "out.html"
+            r = _run([str(mauvais), "-o", str(dest)])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertFalse(rec["ok"])
+            self.assertEqual(rec["erreur"], "sha256")
+            self.assertFalse(dest.exists())
+
+    def test_cli_carte_seule_imprime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "-o", str(dest)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ok"])
+            self.assertEqual(rec["sha256"], self.SHA)
+            self.assertTrue(dest.is_file())
+
+    def test_cli_fichier_flag_match(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "--fichier", str(FICHIER), "-o", str(dest)])
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertTrue(rec["ok"])
+            self.assertTrue(dest.is_file())
+
+    def test_cli_fichier_flag_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            mauvais = Path(tmp) / "mauvais.txt"
+            mauvais.write_bytes(b"non")
+            r = _run([str(CARTE), "--fichier", str(mauvais), "-o", str(dest)])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertEqual(rec["erreur"], "sha256")
+            self.assertFalse(dest.exists())
+
+    def test_cli_fichier_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "out.html"
+            r = _run([str(CARTE), "--fichier", str(Path(tmp) / "manque.txt"), "-o", str(dest)])
+            self.assertEqual(r.returncode, 1, r.stderr)
+            rec = json.loads(r.stdout)
+            self.assertEqual(rec["erreur"], "fichier introuvable")
             self.assertFalse(dest.exists())
 
 

@@ -19,7 +19,7 @@
     "objet": { "type": ["string", "null"] },
     "sha256": {
       "type": ["string", "null"],
-      "description": "objet.sha256 as written on the card. Printed, not recomputed."
+      "description": "objet.sha256 as written on the card. Recomputed from companion file bytes when a path is given (jalon 1). Otherwise printed, not recomputed."
     },
     "empreinte": {
       "type": ["string", "null"],
