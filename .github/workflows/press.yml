@@ -28,3 +28,19 @@ jobs:
           grep -q '"consomme": true' /tmp/kit.html
           if grep -q "VERT" /tmp/kit.html; then echo "print must not say VERT"; exit 1; fi
           python3 -c "import json; c=json.load(open('/tmp/bienvenue.txt.mesure.json')); assert c['lectures']==0 and c['detruit'] is True and 'consomme' not in c"
+      - name: re-press-ancrage
+        run: |
+          python3 press.py examples/bienvenue.txt.unforge.json --ancrage examples/billet.ancrage.json -o /tmp/billet.html
+          grep -q "ANCRAGE tient" /tmp/billet.html
+          grep -q '"verifie": true' /tmp/billet.html
+          grep -q "billet" /tmp/billet.html
+          if grep -q "VERT" /tmp/billet.html; then echo "print must not say VERT"; exit 1; fi
+          python3 -c "import json; c=json.load(open('examples/billet.ancrage.json')); assert c=={'format':'ANCRAGE-v0','objet':'billet','avant':'2028-08-31'} and 'verifie' not in c"
+          python3 press.py examples/bienvenue.txt.unforge.json --ancrage examples/garantie.ancrage.json -o /tmp/garantie.html
+          grep -q "ANCRAGE tient" /tmp/garantie.html
+          grep -q "garantie" /tmp/garantie.html
+          python3 -c "import json; c=json.load(open('examples/garantie.ancrage.json')); assert c=={'format':'ANCRAGE-v0','objet':'garantie','avant':'2028-08-31'} and 'verifie' not in c"
+          python3 -c "import json; json.dump({'format':'ANCRAGE-v0','objet':'billet','avant':'2020-01-01'}, open('/tmp/expire.ancrage.json','w'))"
+          if python3 press.py examples/bienvenue.txt.unforge.json --ancrage /tmp/expire.ancrage.json -o /tmp/no.html; then echo "expired must refuse"; exit 1; fi
+          test ! -f /tmp/no.html
+          python3 press.py examples/bienvenue.txt.unforge.json --ancrage /tmp/expire.ancrage.json -o /tmp/no.html | python3 -c "import json,sys; r=json.load(sys.stdin); assert r['ok'] is False and r['erreur']=='ancrage perime' and 're-mesurer' in r['phrase'] and 'VERT' not in r['phrase']"

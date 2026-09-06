@@ -47,6 +47,16 @@
         "detruit": { "type": "boolean" },
         "consomme": { "const": true, "description": "This print spent one reading. Not written onto the MESURE card." }
       }
+    },
+    "ancrage": {
+      "type": "object",
+      "description": "ANCRAGE-v0 satellite after verifier (re-press / portes 3+7). Read-only. Expired avant = re-measure, not fake. Press does not write a new date. Not a seal. Not a receipt. Rail: https://github.com/carllaliberte/ancrage-protocol",
+      "properties": {
+        "format": { "const": "ANCRAGE-v0" },
+        "objet": { "type": ["string", "null"] },
+        "avant": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "verifie": { "const": true, "description": "This print verified the date. Not written onto the ANCRAGE card." }
+      }
     }
   }
 }

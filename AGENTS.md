@@ -6,6 +6,7 @@ You are looking at the public printer, not the node.
 
 - Print: `python press.py FILE.unforge.json` or `python press.py FILE` (looks for `FILE.unforge.json`)
 - Kit presse (porte 8): `python press.py FILE --mesure` consults sibling `FILE.mesure.json` (or a path). Copy the fixture first. Consulting spends a reading. Do not fork. Do not vendor mesure-protocol.
+- Re-press (portes 3+7): `python press.py FILE --ancrage` verifies sibling `FILE.ancrage.json` (or a path: `examples/billet.ancrage.json`, `examples/garantie.ancrage.json`). Read-only. Expired date = re-measure, not fake. Do not reculer. Do not vendor ancrage-protocol.
 - Interop (no server): `python press.py --schema` · `from press import imprimer` · INTEROP.md
 - Treat `ok: true` as “HTML written from a UNFORGE-PREUVE-v1 or v2 card”. v1 prints a banner: resseller v2. Never VERT.
 - Send match questions to [unforge-check](https://github.com/carllaliberte/unforge-check) — `VERT` there means the file matches, not a quantum claim
